@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "wortschatz-cloudflare",
+  "name": "mein-wortschatz",
   "compatibility_date": "2025-03-12",
   "assets": {
     "directory": "./dist",
