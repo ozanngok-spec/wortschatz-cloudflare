@@ -313,7 +313,7 @@ function PinScreen({ onEnter, darkMode, toggleDark }) {
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("wortschatz-darkmode") ?? "true"); } catch(e) { return true; }
+    try { return JSON.parse(localStorage.getItem("wortschatz-darkmode") ?? "false"); } catch(e) { return false; }
   });
   const th = darkMode ? DARK : LIGHT;
 
@@ -390,7 +390,7 @@ export default function App() {
   const saveWord = async (finalWord, ai) => {
     const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false }) });
     const inserted = Array.isArray(result) ? result[0] : result;
-    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at }, ...prev]);
+    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at }, ...prev]);
     setInput(""); setExpandedId(inserted.id); setSuggestion(null);
   };
 

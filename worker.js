@@ -32,7 +32,7 @@ async function handleClaude(req, env) {
 - "translation": English translation (concise)
 - "type": one of "Nomen", "Verb", "Adjektiv", "Adverb", "Ausdruck"
 - "level": CEFR level, one of "A1","A2","B1","B2","C1","C2"
-- "explanation": a brief explanation in English (1-2 sentences)
+- "explanation": a brief explanation in German (1-2 sentences)
 - "sentences": array of exactly 3 objects, each with "german" (example sentence using the word) and "english" (translation)
 - "forms": grammatical forms string:
   - If Nomen: "der/die/das Word (plural)" e.g. "der Hund (die Hunde)"
