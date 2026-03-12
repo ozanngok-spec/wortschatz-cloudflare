@@ -4,6 +4,8 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+const stripFences = (text) => text.trim().replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+
 async function callClaude(apiKey, prompt, maxTokens = 1024) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -32,11 +34,15 @@ async function handleClaude(req, env) {
 - "level": CEFR level, one of "A1","A2","B1","B2","C1","C2"
 - "explanation": a brief explanation in English (1-2 sentences)
 - "sentences": array of exactly 3 objects, each with "german" (example sentence using the word) and "english" (translation)
+- "forms": grammatical forms string:
+  - If Nomen: "der/die/das Word (plural)" e.g. "der Hund (die Hunde)"
+  - If Verb: "3rd person present, past tense, perfect" e.g. "läuft, lief, ist gelaufen"
+  - Otherwise: null
 
 Return ONLY the raw JSON object, no markdown, no code fences.`;
 
   const text = await callClaude(env.ANTHROPIC_API_KEY, prompt);
-  const json = JSON.parse(text.trim());
+  const json = JSON.parse(stripFences(text));
   return new Response(JSON.stringify(json), {
     headers: { "Content-Type": "application/json", ...CORS },
   });
@@ -57,7 +63,7 @@ Split the word "${word}" into meaningful phonetic parts for the highlights array
 Return ONLY the raw JSON object, no markdown, no code fences.`;
 
   const text = await callClaude(env.ANTHROPIC_API_KEY, prompt);
-  const json = JSON.parse(text.trim());
+  const json = JSON.parse(stripFences(text));
   return new Response(JSON.stringify(json), {
     headers: { "Content-Type": "application/json", ...CORS },
   });

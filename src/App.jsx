@@ -350,7 +350,7 @@ export default function App() {
     setDbLoading(true);
     try {
       const data = await sbFetch(`/rest/v1/vocabulary?user_id=eq.${userId}&select=*&order=added_at.desc`);
-      setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, mastered:w.mastered, addedAt:w.added_at })));
+      setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, forms:w.forms||null, mastered:w.mastered, addedAt:w.added_at })));
     } catch(e) { console.error(e); }
     setDbLoading(false);
   }, [userId]);
@@ -388,9 +388,9 @@ export default function App() {
   };
 
   const saveWord = async (finalWord, ai) => {
-    const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, mastered:false }) });
+    const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false }) });
     const inserted = Array.isArray(result) ? result[0] : result;
-    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, mastered:inserted.mastered, addedAt:inserted.added_at }, ...prev]);
+    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at }, ...prev]);
     setInput(""); setExpandedId(inserted.id); setSuggestion(null);
   };
 
@@ -401,8 +401,8 @@ export default function App() {
     setRetryingId(w.id);
     try {
       const ai = await fetchExampleSentences(w.word);
-      await sbFetch(`/rest/v1/vocabulary?id=eq.${w.id}`, { method:"PATCH", body:JSON.stringify({ translation:ai.translation, type:ai.type, explanation:ai.explanation, sentences:ai.sentences }) });
-      setWords(prev => prev.map(x => x.id===w.id ? { ...x, translation:ai.translation, type:ai.type, explanation:ai.explanation, sentences:ai.sentences } : x));
+      await sbFetch(`/rest/v1/vocabulary?id=eq.${w.id}`, { method:"PATCH", body:JSON.stringify({ translation:ai.translation, type:ai.type, explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null }) });
+      setWords(prev => prev.map(x => x.id===w.id ? { ...x, translation:ai.translation, type:ai.type, explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null } : x));
     } catch(e) { console.error(e); }
     setRetryingId(null);
   };
@@ -508,6 +508,7 @@ export default function App() {
                     {w.level && (() => { const lc = levelColor(w.level); return <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, background:lc.bg, color:lc.text, letterSpacing:"0.1em", fontFamily:"sans-serif", fontWeight:"bold" }}>{w.level}</span>; })()}
                   </div>
                   <div style={{ fontSize:12, color:th.textMuted, marginTop:2 }}>{w.translation}</div>
+                  {w.forms && <div style={{ fontSize:11, color:th.textWarm, marginTop:2, fontStyle:"italic" }}>{w.forms}</div>}
                 </div>
                 <div style={{ display:"flex", gap:7, alignItems:"center", flexShrink:0 }}>
                   <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:"transparent", border:`1px solid ${w.mastered?th.accent:th.borderMid}`, color:w.mastered?th.accent:th.textDim, borderRadius:4, padding:"3px 9px", fontSize:9, fontFamily:"inherit", letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer" }}>
