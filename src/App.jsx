@@ -21,48 +21,50 @@ async function hashPin(pin) {
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 const DARK = {
-  bg:         "#0a0908",
-  bgCard:     "#0e0d0b",
-  bgInput:    "#111009",
-  bgInset:    "#0a0908",
-  border:     "#161512",
-  borderMid:  "#252320",
-  borderActive:"#2a2820",
-  text:       "#e8e0d0",
-  textMuted:  "#5a5448",
-  textFaint:  "#3a3830",
-  textDim:    "#2e2c26",
-  textGold:   "#c8a96e",
-  textWarm:   "#a09070",
-  accent:     "#c8a96e",
-  accentBg:   "#0a0908",
-  filterBg:   "#111009",
-  filterText: "#4a4840",
-  pillBg:     "#1a1815",
-  red:        "#c87070",
-  green:      "#6aaa6a",
+  isDark:      true,
+  bg:          "#111110",
+  bgCard:      "#1C1B18",
+  bgInput:     "#161513",
+  bgInset:     "#111110",
+  border:      "#272521",
+  borderMid:   "#363129",
+  borderActive:"#463F35",
+  text:        "#EDE7DB",
+  textMuted:   "#7A7268",
+  textFaint:   "#4A4640",
+  textDim:     "#343028",
+  textGold:    "#9D96F5",
+  textWarm:    "#A08868",
+  accent:      "#7C75F0",
+  accentBg:    "#1A1928",
+  filterBg:    "#161513",
+  filterText:  "#5A5448",
+  pillBg:      "#222018",
+  red:         "#F87171",
+  green:       "#4ADE80",
 };
 const LIGHT = {
-  bg:         "#f5f0e8",
-  bgCard:     "#faf7f2",
-  bgInput:    "#ffffff",
-  bgInset:    "#f0ebe0",
-  border:     "#e0d8cc",
-  borderMid:  "#ccc4b4",
-  borderActive:"#b8aa96",
-  text:       "#2a2418",
-  textMuted:  "#7a6e5e",
-  textFaint:  "#a09080",
-  textDim:    "#c0b8a8",
-  textGold:   "#9a7a3e",
-  textWarm:   "#7a6040",
-  accent:     "#9a7a3e",
-  accentBg:   "#f5f0e8",
-  filterBg:   "#ffffff",
-  filterText: "#6a5e4e",
-  pillBg:     "#e8e0d0",
-  red:        "#b85050",
-  green:      "#4a8a4a",
+  isDark:      false,
+  bg:          "#F7F3EC",
+  bgCard:      "#FFFFFF",
+  bgInput:     "#FFFFFF",
+  bgInset:     "#EEE9DF",
+  border:      "#E4DDD1",
+  borderMid:   "#C8BEB0",
+  borderActive:"#B0A594",
+  text:        "#1C1810",
+  textMuted:   "#6E6456",
+  textFaint:   "#A09080",
+  textDim:     "#C4BAA8",
+  textGold:    "#4338CA",
+  textWarm:    "#7A5C38",
+  accent:      "#4338CA",
+  accentBg:    "#EEEEFF",
+  filterBg:    "#FFFFFF",
+  filterText:  "#6E6456",
+  pillBg:      "#EDE8DF",
+  red:         "#BE123C",
+  green:       "#15803D",
 };
 
 const ThemeCtx = createContext(DARK);
@@ -102,23 +104,41 @@ const matchesTypeFilter = (word, filter) => {
 
 const typeColor = (type, th) => {
   const t = (type || "").toLowerCase();
-  if (t.includes("nomen") || t.includes("noun")) return { bg:"#3d2e1e", text:"#e8c49a" };
-  if (t.includes("verb")) return { bg:"#1e2e3d", text:"#9ac4e8" };
-  if (t.includes("ausdruck") || t.includes("expression") || t.includes("phrase") || t.includes("redewendung")) return { bg:"#2e1e3d", text:"#c49ae8" };
-  if (t.includes("adj")) return { bg:"#1e3d2e", text:"#9ae8c4" };
-  if (t.includes("adverb")) return { bg:"#2e1e1e", text:"#e89a9a" };
-  return { bg:"#2e2e1e", text:"#e8e49a" };
+  if (th.isDark) {
+    if (t.includes("nomen") || t.includes("noun")) return { bg:"#2D1F08", text:"#FBB040" };
+    if (t.includes("verb")) return { bg:"#0C1E3A", text:"#60A5FA" };
+    if (t.includes("ausdruck") || t.includes("expression") || t.includes("phrase") || t.includes("redewendung")) return { bg:"#1E0D3C", text:"#A78BFA" };
+    if (t.includes("adj")) return { bg:"#0A2D1A", text:"#34D399" };
+    if (t.includes("adverb")) return { bg:"#3A0D18", text:"#FB7185" };
+    return { bg:"#1A1A2A", text:"#94A3B8" };
+  } else {
+    if (t.includes("nomen") || t.includes("noun")) return { bg:"#FEF3C7", text:"#92400E" };
+    if (t.includes("verb")) return { bg:"#DBEAFE", text:"#1D4ED8" };
+    if (t.includes("ausdruck") || t.includes("expression") || t.includes("phrase") || t.includes("redewendung")) return { bg:"#EDE9FE", text:"#5B21B6" };
+    if (t.includes("adj")) return { bg:"#D1FAE5", text:"#065F46" };
+    if (t.includes("adverb")) return { bg:"#FFE4E6", text:"#9F1239" };
+    return { bg:"#F1F5F9", text:"#475569" };
+  }
 };
 
-const levelColor = (level) => {
+const levelColor = (level, th) => {
   const l = (level || "").toUpperCase().trim();
-  if (l === "A1") return { bg:"#1e3a1e", text:"#7acc7a" };
-  if (l === "A2") return { bg:"#1e3020", text:"#6abf6a" };
-  if (l === "B1") return { bg:"#1e2e3a", text:"#7ab0e8" };
-  if (l === "B2") return { bg:"#1a2a3d", text:"#5a9ad8" };
-  if (l === "C1") return { bg:"#3a2a1e", text:"#e8a96e" };
-  if (l === "C2") return { bg:"#3d1e2e", text:"#e87ab0" };
-  return { bg:"#2a2a2a", text:"#888" };
+  if (th && !th.isDark) {
+    if (l === "A1") return { bg:"#DCFEE0", text:"#1A6B28" };
+    if (l === "A2") return { bg:"#DCFEE8", text:"#1A6B40" };
+    if (l === "B1") return { bg:"#DCF0FE", text:"#1448A0" };
+    if (l === "B2") return { bg:"#DCE8FE", text:"#1438A0" };
+    if (l === "C1") return { bg:"#FEF0DC", text:"#8A5014" };
+    if (l === "C2") return { bg:"#FEDCF0", text:"#901460" };
+    return { bg:"#F0F0F0", text:"#606060" };
+  }
+  if (l === "A1") return { bg:"#1A3A1A", text:"#7ACC7A" };
+  if (l === "A2") return { bg:"#1A3020", text:"#6ABF6A" };
+  if (l === "B1") return { bg:"#1A2E3A", text:"#7AB0E8" };
+  if (l === "B2") return { bg:"#182538", text:"#5A9AD8" };
+  if (l === "C1") return { bg:"#3A281A", text:"#E8A96E" };
+  if (l === "C2") return { bg:"#3A1A2E", text:"#E87AB0" };
+  return { bg:"#2A2A2A", text:"#888" };
 };
 
 // ── Speak Button ──────────────────────────────────────────────────────────────
@@ -287,21 +307,21 @@ function PinScreen({ onEnter, darkMode, toggleDark }) {
     onEnter(pin.trim());
   };
   return (
-    <div style={{ minHeight:"100vh", background:th.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Palatino Linotype',Palatino,serif", padding:24, transition:"background 0.3s" }}>
+    <div style={{ minHeight:"100vh", background:th.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Inter',system-ui,sans-serif", padding:24, transition:"background 0.3s" }}>
       <div style={{ position:"absolute", top:20, right:24 }}>
         <button onClick={toggleDark} style={{ background:"transparent", border:`1px solid ${th.borderMid}`, borderRadius:20, padding:"4px 12px", fontSize:13, cursor:"pointer", color:th.textMuted, display:"flex", alignItems:"center", gap:6 }}>
           {darkMode ? "☀️" : "🌙"} <span style={{ fontSize:10 }}>{darkMode ? "Hell" : "Dunkel"}</span>
         </button>
       </div>
       <div style={{ textAlign:"center", maxWidth:380 }}>
-        <div style={{ width:64, height:64, borderRadius:"50%", border:`1px solid ${th.accent}`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 32px", fontSize:26, color:th.accent }}>W</div>
-        <h1 style={{ fontSize:34, fontWeight:"normal", color:th.text, margin:"0 0 8px", letterSpacing:"0.06em" }}>Wortschatz</h1>
-        <p style={{ color:th.textMuted, fontSize:13, letterSpacing:"0.1em", textTransform:"uppercase", margin:"0 0 40px" }}>Dein persönlicher C1-Wortschatz</p>
-        <p style={{ color:th.textWarm, fontSize:14, lineHeight:1.8, marginBottom:32 }}>Gib deinen persönlichen PIN ein, um auf deinen Wortschatz zuzugreifen.<br/>Zum ersten Mal? Wähle einfach einen beliebigen PIN.</p>
-        <input value={pin} onChange={e => { setPin(e.target.value); setError(""); }} onKeyDown={e => e.key==="Enter" && handle()} placeholder="Dein PIN oder deine Passphrase…" type="password"
-          style={{ width:"100%", boxSizing:"border-box", background:th.bgInput, border:`1px solid ${th.borderMid}`, borderRadius:6, padding:"12px 16px", fontSize:16, color:th.text, outline:"none", fontFamily:"inherit", marginBottom:10, textAlign:"center", letterSpacing:"0.1em" }} />
+        <div style={{ width:60, height:60, borderRadius:"50%", border:`1.5px solid ${th.accent}`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 28px", fontSize:22, color:th.accent, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>W</div>
+        <h1 style={{ fontSize:32, fontWeight:600, color:th.text, margin:"0 0 6px", fontFamily:"'Lora',Georgia,serif", letterSpacing:"0.01em" }}>Wortschatz</h1>
+        <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.12em", textTransform:"uppercase", margin:"0 0 36px", fontWeight:500 }}>Dein persönlicher Wortschatz</p>
+        <p style={{ color:th.textWarm, fontSize:14, lineHeight:1.8, marginBottom:28 }}>Gib deinen persönlichen PIN ein, um auf deinen Wortschatz zuzugreifen.<br/>Zum ersten Mal? Wähle einfach einen beliebigen PIN.</p>
+        <input value={pin} onChange={e => { setPin(e.target.value); setError(""); }} onKeyDown={e => e.key==="Enter" && handle()} placeholder="PIN oder Passphrase…" type="password"
+          style={{ width:"100%", background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:10, padding:"13px 18px", fontSize:16, color:th.text, outline:"none", fontFamily:"inherit", marginBottom:10, textAlign:"center", letterSpacing:"0.12em", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)" }} />
         {error && <p style={{ color:th.red, fontSize:13, margin:"0 0 10px" }}>{error}</p>}
-        <button onClick={handle} style={{ width:"100%", background:th.accent, color:"#0a0908", border:"none", borderRadius:6, padding:"13px", fontSize:13, fontFamily:"inherit", fontWeight:"bold", letterSpacing:"0.1em", textTransform:"uppercase", cursor:"pointer" }}>
+        <button onClick={handle} style={{ width:"100%", background:th.accent, color:"#fff", border:"none", borderRadius:10, padding:"14px", fontSize:13, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.06em", cursor:"pointer", boxShadow:`0 2px 8px ${th.accent}44` }}>
           Meinen Wortschatz öffnen →
         </button>
         <p style={{ color:th.textFaint, fontSize:11, marginTop:16, lineHeight:1.6 }}>Dein PIN wird verschlüsselt gespeichert — niemals im Klartext.</p>
@@ -425,27 +445,26 @@ export default function App() {
   const popup = { background:th.bgCard, border:`1px solid ${th.borderActive}`, borderRadius:10, padding:"28px 32px", maxWidth:360, width:"90%", textAlign:"center", fontFamily:"'Palatino Linotype',Palatino,serif" };
   const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 };
 
-  if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"Palatino,serif", fontSize:13 }}>Laden…</div>;
+  if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Laden…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
 
   return (
     <ThemeCtx.Provider value={th}>
-    <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Palatino Linotype',Palatino,serif", color:th.text, transition:"background 0.3s, color 0.3s" }}>
+    <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s" }}>
 
       {/* Header */}
-      <div style={{ borderBottom:`1px solid ${th.border}`, padding:"20px 36px 16px", background:th.bg, position:"sticky", top:0, zIndex:10 }}>
+      <div style={{ borderBottom:`1px solid ${th.border}`, padding:"18px 36px 14px", background:th.bg, position:"sticky", top:0, zIndex:10, backdropFilter:"blur(8px)" }}>
         <div style={{ maxWidth:740, margin:"0 auto" }}>
-          <div style={{ display:"flex", alignItems:"baseline", justifyContent:"space-between", marginBottom:14 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:10 }}>
-              <h1 style={{ fontSize:22, fontWeight:"normal", letterSpacing:"0.06em", color:th.text, margin:0 }}>Wortschatz</h1>
-              <span style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.14em", textTransform:"uppercase" }}>C1</span>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+            <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+              <h1 style={{ fontSize:20, fontWeight:600, color:th.text, margin:0, fontFamily:"'Lora',Georgia,serif" }}>Wortschatz</h1>
+              <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
             </div>
-            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.borderMid}`, borderRadius:4, color:th.textFaint, fontSize:10, fontFamily:"inherit", padding:"4px 12px", cursor:"pointer" }}>Sperren</button>
-            {/* Dark/light toggle */}
+            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 12px", cursor:"pointer" }}>Sperren</button>
             <button onClick={toggleDark} title={darkMode ? "Heller Modus" : "Dunkler Modus"}
-              style={{ background:"transparent", border:`1px solid ${th.borderMid}`, borderRadius:20, padding:"4px 12px", fontSize:13, cursor:"pointer", color:th.textMuted, display:"flex", alignItems:"center", gap:6, transition:"all 0.2s" }}>
-              {darkMode ? "☀️" : "🌙"} <span style={{ fontSize:10, letterSpacing:"0.06em" }}>{darkMode ? "Hell" : "Dunkel"}</span>
+              style={{ background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:6, padding:"5px 12px", fontSize:13, cursor:"pointer", color:th.textMuted, display:"flex", alignItems:"center", gap:5, transition:"all 0.2s" }}>
+              {darkMode ? "☀️" : "🌙"} <span style={{ fontSize:11, fontWeight:500 }}>{darkMode ? "Hell" : "Dunkel"}</span>
             </button>
             </div>
           </div>
@@ -453,13 +472,13 @@ export default function App() {
             <input value={input} onChange={e => { setInput(e.target.value); setError(""); setSuggestion(null); }}
               onKeyDown={e => e.key==="Enter" && !loading && handleAdd()}
               placeholder="Deutsches Wort oder Ausdruck eingeben…"
-              style={{ flex:1, background:th.bgInput, border:`1px solid ${th.borderMid}`, borderRadius:6, padding:"11px 15px", fontSize:15, color:th.text, outline:"none", fontFamily:"inherit" }} />
+              style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:10, padding:"11px 16px", fontSize:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)" }} />
             <button onClick={isListening ? stopListening : startListening}
-              style={{ background:isListening?th.red:th.bgInput, border:`1px solid ${isListening?th.red:th.borderMid}`, borderRadius:6, padding:"11px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1 }}>
+              style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:10, padding:"11px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1 }}>
               {isListening ? "⏹" : "🎤"}
             </button>
             <button onClick={handleAdd} disabled={loading||!input.trim()}
-              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#0a0908", border:"none", borderRadius:6, padding:"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:"bold", letterSpacing:"0.08em", textTransform:"uppercase", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap" }}>
+              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:10, padding:"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", boxShadow: loading ? "none" : `0 2px 8px ${th.accent}44` }}>
               {loading ? "Suche…" : "Hinzufügen"}
             </button>
           </div>
@@ -470,16 +489,16 @@ export default function App() {
 
       {/* Stats + Filters */}
       <div style={{ maxWidth:740, margin:"0 auto", padding:"14px 36px 0" }}>
-        <div style={{ fontSize:11, color:th.textFaint, letterSpacing:"0.06em", marginBottom:10 }}>
-          {words.length} Wörter &nbsp;·&nbsp; <span style={{ color:th.accent }}>{words.filter(w=>w.mastered).length} gelernt</span> &nbsp;·&nbsp; {words.filter(w=>!w.mastered).length} in Bearbeitung
+        <div style={{ fontSize:11, color:th.textFaint, letterSpacing:"0.04em", marginBottom:12 }}>
+          {words.length} Wörter &nbsp;·&nbsp; <span style={{ color:th.accent, fontWeight:500 }}>{words.filter(w=>w.mastered).length} gelernt</span> &nbsp;·&nbsp; {words.filter(w=>!w.mastered).length} in Bearbeitung
         </div>
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
           {TYPE_FILTERS.map(({ key, label }) => {
             const count = countFor(key); const active = filter===key;
             return (
-              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.filterBg, color:active?"#0a0908":th.filterText, border:`1px solid ${active?th.accent:th.borderMid}`, borderRadius:20, padding:"4px 12px", fontSize:11, fontFamily:"inherit", cursor:"pointer", transition:"all 0.15s" }}>
+              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:8, padding:"5px 12px", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
                 {label}
-                <span style={{ fontSize:9, opacity:0.7, background:active?"rgba(0,0,0,0.15)":th.pillBg, borderRadius:10, padding:"1px 5px" }}>{count}</span>
+                <span style={{ fontSize:10, fontWeight:500, background:active?"rgba(255,255,255,0.2)":th.pillBg, borderRadius:6, padding:"0 5px" }}>{count}</span>
               </button>
             );
           })}
@@ -498,35 +517,35 @@ export default function App() {
         {!dbLoading && filteredWords.map(w => {
           const tc = typeColor(w.type, th); const isRetrying = retryingId===w.id;
           return (
-            <div key={w.id} style={{ background:th.bgCard, border:`1px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:7, marginBottom:7, overflow:"hidden", opacity:w.mastered?0.5:1, transition:"all 0.2s" }}>
-              <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:"14px 16px", cursor:"pointer", gap:12 }}>
+            <div key={w.id} style={{ background:th.bgCard, border:`1.5px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:12, marginBottom:8, overflow:"hidden", opacity:w.mastered?0.45:1, transition:"all 0.2s", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:"14px 18px", cursor:"pointer", gap:12 }}>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:9, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:16, color:w.mastered?th.textFaint:th.text, textDecoration:w.mastered?"line-through":"none" }}>{w.word}</span>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                    <span style={{ fontSize:17, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:w.mastered?th.textFaint:th.text, textDecoration:w.mastered?"line-through":"none" }}>{w.word}</span>
                     <SpeakBtn text={w.word} size={13} />
-                    <span style={{ fontSize:9, padding:"2px 6px", borderRadius:3, background:tc.bg, color:tc.text, letterSpacing:"0.08em", textTransform:"uppercase", fontFamily:"sans-serif" }}>{w.type}</span>
-                    {w.level && (() => { const lc = levelColor(w.level); return <span style={{ fontSize:9, padding:"2px 7px", borderRadius:3, background:lc.bg, color:lc.text, letterSpacing:"0.1em", fontFamily:"sans-serif", fontWeight:"bold" }}>{w.level}</span>; })()}
+                    <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:tc.bg, color:tc.text, letterSpacing:"0.06em", textTransform:"uppercase", fontWeight:600 }}>{w.type}</span>
+                    {w.level && (() => { const lc = levelColor(w.level, th); return <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:lc.bg, color:lc.text, letterSpacing:"0.08em", fontWeight:700 }}>{w.level}</span>; })()}
                   </div>
-                  <div style={{ fontSize:12, color:th.textMuted, marginTop:2 }}>{w.translation}</div>
-                  {w.forms && <div style={{ fontSize:11, color:th.textWarm, marginTop:2, fontStyle:"italic" }}>{w.forms}</div>}
+                  <div style={{ fontSize:13, color:th.textMuted, marginTop:3 }}>{w.translation}</div>
+                  {w.forms && <div style={{ fontSize:12, color:th.textWarm, marginTop:2, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.forms}</div>}
                 </div>
-                <div style={{ display:"flex", gap:7, alignItems:"center", flexShrink:0 }}>
-                  <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:"transparent", border:`1px solid ${w.mastered?th.accent:th.borderMid}`, color:w.mastered?th.accent:th.textDim, borderRadius:4, padding:"3px 9px", fontSize:9, fontFamily:"inherit", letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer" }}>
+                <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
+                  <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 10px", fontSize:10, fontFamily:"inherit", fontWeight:500, letterSpacing:"0.04em", cursor:"pointer" }}>
                     {w.mastered ? "✓ Gelernt" : "Gelernt?"}
                   </button>
                   <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(w.id); }}
-                    onMouseEnter={e=>e.target.style.color=th.red} onMouseLeave={e=>e.target.style.color=th.textDim}
-                    style={{ background:"transparent", border:"none", color:th.textDim, fontSize:17, cursor:"pointer", padding:"2px 4px", lineHeight:1, transition:"color 0.15s" }}>×</button>
-                  <span style={{ color:th.textDim, fontSize:10, display:"inline-block", transform:expandedId===w.id?"rotate(180deg)":"rotate(0)", transition:"transform 0.2s" }}>▾</span>
+                    onMouseEnter={e=>e.target.style.color=th.red} onMouseLeave={e=>e.target.style.color=th.textFaint}
+                    style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:18, cursor:"pointer", padding:"2px 4px", lineHeight:1, transition:"color 0.15s" }}>×</button>
+                  <span style={{ color:th.textFaint, fontSize:11, display:"inline-block", transform:expandedId===w.id?"rotate(180deg)":"rotate(0)", transition:"transform 0.2s" }}>▾</span>
                 </div>
               </div>
               {expandedId===w.id && (
-                <div style={{ borderTop:`1px solid ${th.border}`, padding:"16px 16px 20px" }}>
-                  <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.7, margin:"0 0 10px", fontStyle:"italic" }}>{w.explanation}</p>
-                  <button onClick={() => handleRetry(w)} disabled={isRetrying} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:4, color:isRetrying?th.textFaint:th.textMuted, fontSize:10, fontFamily:"inherit", padding:"3px 10px", cursor:isRetrying?"not-allowed":"pointer", marginBottom:18 }}>
+                <div style={{ borderTop:`1px solid ${th.border}`, padding:"16px 18px 20px" }}>
+                  <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.75, margin:"0 0 12px", fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.explanation}</p>
+                  <button onClick={() => handleRetry(w)} disabled={isRetrying} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:isRetrying?th.textFaint:th.textMuted, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"4px 12px", cursor:isRetrying?"not-allowed":"pointer", marginBottom:18 }}>
                     {isRetrying ? "⟳ Aktualisiere…" : "⟳ Erneut generieren"}
                   </button>
-                  <div style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:10 }}>Beispielsätze</div>
+                  <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>Beispielsätze</div>
                   <div style={{ display:"flex", flexDirection:"column", gap:13 }}>
                     {(w.sentences||[]).map((s,i) => (
                       <div key={i} style={{ borderLeft:`2px solid ${th.borderMid}`, paddingLeft:13 }}>
