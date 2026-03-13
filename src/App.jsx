@@ -70,6 +70,16 @@ const LIGHT = {
 const ThemeCtx = createContext(DARK);
 const useTheme = () => useContext(ThemeCtx);
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+}
+
 // ── AI ────────────────────────────────────────────────────────────────────────
 async function fetchExampleSentences(word) {
   const response = await fetch("/claude", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ word }) });
@@ -323,7 +333,7 @@ function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRefresh })
 
   return (
     <div style={{ background:th.accentBg, border:`1.5px solid ${borderColor}`, borderRadius:12, marginBottom:8, overflow:"hidden", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(67,56,202,0.08)" }}>
-      <div onClick={() => setExpanded(p => !p)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"13px 18px", cursor:"pointer" }}>
+      <div onClick={() => setExpanded(p => !p)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:th.isMobile?"10px 14px":"13px 18px", cursor:"pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:10, color:th.accent, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:700 }}>✦ Wort des Tages</span>
           <span style={{ fontSize:11, color:th.textFaint }}>{today}</span>
@@ -331,7 +341,7 @@ function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRefresh })
         <span style={{ color:th.textFaint, fontSize:11, display:"inline-block", transform:expanded?"rotate(180deg)":"rotate(0)", transition:"transform 0.2s" }}>▾</span>
       </div>
       {expanded && (
-        <div style={{ borderTop:`1px solid ${borderColor}`, padding:"16px 18px 20px" }}>
+        <div style={{ borderTop:`1px solid ${borderColor}`, padding:th.isMobile?"12px 14px 16px":"16px 18px 20px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
             <span style={{ fontSize:22, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:th.text }}>{wotd.word}</span>
             <SpeakBtn text={wotd.word} size={14} />
@@ -417,7 +427,8 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
     try { return JSON.parse(localStorage.getItem("wortschatz-darkmode") ?? "false"); } catch(e) { return false; }
   });
-  const th = darkMode ? DARK : LIGHT;
+  const isMobile = useIsMobile();
+  const th = { ...(darkMode ? DARK : LIGHT), isMobile };
 
   const [userId, setUserId] = useState(null);
   const [words, setWords] = useState([]);
@@ -584,7 +595,7 @@ export default function App() {
     <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s" }}>
 
       {/* Header */}
-      <div style={{ borderBottom:`1px solid ${th.border}`, padding:"18px 36px 14px", background:th.bg, position:"sticky", top:0, zIndex:10, backdropFilter:"blur(8px)" }}>
+      <div style={{ borderBottom:`1px solid ${th.border}`, padding:th.isMobile?"14px 16px 12px":"18px 36px 14px", background:th.bg, position:"sticky", top:0, zIndex:10, backdropFilter:"blur(8px)" }}>
         <div style={{ maxWidth:740, margin:"0 auto" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
             <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
@@ -592,25 +603,25 @@ export default function App() {
               <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
             </div>
             <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 12px", cursor:"pointer" }}>Sperren</button>
+            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "🔒" : "Sperren"}</button>
             <button onClick={toggleDark} title={darkMode ? "Heller Modus" : "Dunkler Modus"}
-              style={{ background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:6, padding:"5px 12px", fontSize:13, cursor:"pointer", color:th.textMuted, display:"flex", alignItems:"center", gap:5, transition:"all 0.2s" }}>
-              {darkMode ? "☀️" : "🌙"} <span style={{ fontSize:11, fontWeight:500 }}>{darkMode ? "Hell" : "Dunkel"}</span>
+              style={{ background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:6, padding:"5px 10px", fontSize:13, cursor:"pointer", color:th.textMuted, display:"flex", alignItems:"center", gap:4, transition:"all 0.2s" }}>
+              {darkMode ? "☀️" : "🌙"} {!th.isMobile && <span style={{ fontSize:11, fontWeight:500 }}>{darkMode ? "Hell" : "Dunkel"}</span>}
             </button>
             </div>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <input value={input} onChange={e => { setInput(e.target.value); setError(""); setSuggestion(null); }}
               onKeyDown={e => e.key==="Enter" && !loading && handleAdd()}
-              placeholder="Deutsches Wort oder Ausdruck eingeben…"
-              style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:10, padding:"11px 16px", fontSize:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)" }} />
+              placeholder={th.isMobile ? "Wort eingeben…" : "Deutsches Wort oder Ausdruck eingeben…"}
+              style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:10, padding:"11px 16px", fontSize:th.isMobile?16:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)" }} />
             <button onClick={isListening ? stopListening : startListening}
               style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:10, padding:"11px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1 }}>
               {isListening ? "⏹" : "🎤"}
             </button>
             <button onClick={handleAdd} disabled={loading||!input.trim()}
-              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:10, padding:"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", boxShadow: loading ? "none" : `0 2px 8px ${th.accent}44` }}>
-              {loading ? "Suche…" : "Hinzufügen"}
+              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:10, padding:th.isMobile?"11px 14px":"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", boxShadow: loading ? "none" : `0 2px 8px ${th.accent}44` }}>
+              {loading ? "…" : th.isMobile ? "+" : "Hinzufügen"}
             </button>
           </div>
           {isListening && <p style={{ color:th.accent, fontSize:12, marginTop:8, marginBottom:0 }}>🎤 Höre zu… jetzt auf Deutsch sprechen</p>}
@@ -619,7 +630,7 @@ export default function App() {
       </div>
 
       {/* Stats + Filters */}
-      <div style={{ maxWidth:740, margin:"0 auto", padding:"14px 36px 0" }}>
+      <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"10px 16px 0":"14px 36px 0" }}>
         <div style={{ fontSize:11, color:th.textFaint, letterSpacing:"0.04em", marginBottom:12 }}>
           {words.length} Wörter &nbsp;·&nbsp; <span style={{ color:th.accent, fontWeight:500 }}>{words.filter(w=>w.mastered).length} gelernt</span> &nbsp;·&nbsp; {words.filter(w=>!w.mastered).length} in Bearbeitung
         </div>
@@ -627,7 +638,7 @@ export default function App() {
           {TYPE_FILTERS.map(({ key, label }) => {
             const count = countFor(key); const active = filter===key;
             return (
-              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:8, padding:"5px 12px", fontSize:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
+              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:8, padding:th.isMobile?"4px 8px":"5px 12px", fontSize:th.isMobile?10:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
                 {label}
                 <span style={{ fontSize:10, fontWeight:500, background:active?"rgba(255,255,255,0.2)":th.pillBg, borderRadius:6, padding:"0 5px" }}>{count}</span>
               </button>
@@ -637,7 +648,7 @@ export default function App() {
       </div>
 
       {/* Word of the Day */}
-      <div style={{ maxWidth:740, margin:"0 auto", padding:"12px 36px 0" }}>
+      <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 0":"12px 36px 0" }}>
         <WordOfTheDay
           wotd={wotd}
           loading={wotdLoading}
@@ -649,7 +660,7 @@ export default function App() {
       </div>
 
       {/* Word List */}
-      <div style={{ maxWidth:740, margin:"0 auto", padding:"12px 36px 60px" }}>
+      <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 48px":"12px 36px 60px" }}>
         {dbLoading && <div style={{ textAlign:"center", padding:"40px 0", color:th.textFaint, fontSize:13 }}>Lade deinen Wortschatz…</div>}
         {!dbLoading && filteredWords.length===0 && (
           <div style={{ textAlign:"center", padding:"60px 0", color:th.textDim }}>
@@ -661,7 +672,7 @@ export default function App() {
           const tc = typeColor(w.type, th); const isRetrying = retryingId===w.id;
           return (
             <div key={w.id} style={{ background:th.bgCard, border:`1.5px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:12, marginBottom:8, overflow:"hidden", opacity:w.mastered?0.45:1, transition:"all 0.2s", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }}>
-              <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:"14px 18px", cursor:"pointer", gap:12 }}>
+              <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:th.isMobile?"12px 14px":"14px 18px", cursor:"pointer", gap:th.isMobile?8:12 }}>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
                     <span style={{ fontSize:17, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:w.mastered?th.textFaint:th.text, textDecoration:w.mastered?"line-through":"none" }}>{w.word}</span>
@@ -673,8 +684,8 @@ export default function App() {
                   {w.forms && <div style={{ fontSize:12, color:th.textWarm, marginTop:2, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.forms}</div>}
                 </div>
                 <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
-                  <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 10px", fontSize:10, fontFamily:"inherit", fontWeight:500, letterSpacing:"0.04em", cursor:"pointer" }}>
-                    {w.mastered ? "✓ Gelernt" : "Gelernt?"}
+                  <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 8px", fontSize:10, fontFamily:"inherit", fontWeight:500, letterSpacing:"0.04em", cursor:"pointer" }}>
+                    {w.mastered ? "✓" : th.isMobile ? "✓?" : "Gelernt?"}
                   </button>
                   <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(w.id); }}
                     onMouseEnter={e=>e.target.style.color=th.red} onMouseLeave={e=>e.target.style.color=th.textFaint}
@@ -683,7 +694,7 @@ export default function App() {
                 </div>
               </div>
               {expandedId===w.id && (
-                <div style={{ borderTop:`1px solid ${th.border}`, padding:"16px 18px 20px" }}>
+                <div style={{ borderTop:`1px solid ${th.border}`, padding:th.isMobile?"12px 14px 16px":"16px 18px 20px" }}>
                   <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.75, margin:"0 0 12px", fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.explanation}</p>
                   <button onClick={() => handleRetry(w)} disabled={isRetrying} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:isRetrying?th.textFaint:th.textMuted, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"4px 12px", cursor:isRetrying?"not-allowed":"pointer", marginBottom:18 }}>
                     {isRetrying ? "⟳ Aktualisiere…" : "⟳ Erneut generieren"}
