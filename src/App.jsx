@@ -10,6 +10,7 @@ import { WordOfTheDay } from "./components/WordOfTheDay.jsx";
 import { PinScreen } from "./components/PinScreen.jsx";
 import { TagManager } from "./components/TagManager.jsx";
 import { TextAnalyzer } from "./components/TextAnalyzer.jsx";
+import { YouTubeAnalyzer } from "./components/YouTubeAnalyzer.jsx";
 import { SpotifyPlayer } from "./components/SpotifyPlayer.jsx";
 import { QuizMode } from "./components/QuizMode.jsx";
 import { handleCallback as handleSpotifyCallback } from "./lib/spotify.js";
@@ -469,7 +470,9 @@ export default function App() {
         {/* ── ANALYSE TAB ── */}
         {activeTab === "analyse" && (
           <div style={{ paddingBottom:48 }}>
-            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Textanalyse</div>
+            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Analyse</div>
+            <YouTubeAnalyzer words={words} onSaveWord={handleAddFromExternal} />
+            <div style={{ marginTop:6 }} />
             <TextAnalyzer words={words} />
           </div>
         )}

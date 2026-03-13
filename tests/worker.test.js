@@ -304,6 +304,87 @@ describe("POST /spotify-vocab", () => {
   });
 });
 
+// ── /youtube-vocab route ──────────────────────────────────────────────────────
+const MOCK_YOUTUBE_RESULT = {
+  expressions: [
+    { word: "sich herausstellen", translation: "to turn out", type: "Verb", context: "Es hat sich herausgestellt, dass…", tags: ["alltag"] },
+    { word: "die Herausforderung", translation: "the challenge", type: "Nomen", context: "eine große Herausforderung für uns alle", tags: ["arbeit"] },
+  ],
+};
+
+describe("POST /youtube-vocab", () => {
+  it("returns 400 for missing URL", async () => {
+    const req = makeReq("POST", "/youtube-vocab", {});
+    const res = await workerDefault.fetch(req, mockEnv);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("URL");
+  });
+
+  it("returns 400 for invalid YouTube URL", async () => {
+    const req = makeReq("POST", "/youtube-vocab", { url: "https://example.com" });
+    const res = await workerDefault.fetch(req, mockEnv);
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("Invalid");
+  });
+
+  it("returns no_captions when page has no captions data", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve("<html><title>Test Video - YouTube</title><body>no captions here</body></html>"),
+    });
+
+    const req = makeReq("POST", "/youtube-vocab", { url: "https://youtube.com/watch?v=dQw4w9WgXcQ" });
+    const res = await workerDefault.fetch(req, mockEnv);
+    const data = await res.json();
+
+    expect(data.error).toBe("no_captions");
+    expect(data.title).toBe("Test Video");
+  });
+
+  it("extracts expressions when German captions are available", async () => {
+    // Mock: 1st call = YouTube page with captions, 2nd call = caption XML, 3rd call = Claude API
+    let callCount = 0;
+    global.fetch = vi.fn().mockImplementation((url) => {
+      callCount++;
+      if (callCount === 1) {
+        // YouTube page with caption tracks
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve(`<html><title>Deutsch lernen - YouTube</title><body>
+            "captions": {"playerCaptionsTracklistRenderer":{"captionTracks":[{"baseUrl":"https://www.youtube.com/api/timedtext?v=test&lang=de","name":{"simpleText":"German"},"languageCode":"de"}]}}, "videoDetails"
+          </body></html>`),
+        });
+      }
+      if (callCount === 2) {
+        // Caption XML
+        return Promise.resolve({
+          ok: true,
+          text: () => Promise.resolve('<transcript><text start="0" dur="5">Es hat sich herausgestellt, dass dies eine große Herausforderung ist.</text></transcript>'),
+        });
+      }
+      // Claude API
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_YOUTUBE_RESULT) }],
+        }),
+      });
+    });
+
+    const req = makeReq("POST", "/youtube-vocab", { url: "https://youtube.com/watch?v=abcdefghijk" });
+    const res = await workerDefault.fetch(req, mockEnv);
+    const data = await res.json();
+
+    expect(data.title).toBe("Deutsch lernen");
+    expect(data.expressions).toHaveLength(2);
+    expect(data.expressions[0].word).toBe("sich herausstellen");
+    expect(data.expressions[0]).toHaveProperty("context");
+    expect(data.expressions[0]).toHaveProperty("tags");
+  });
+});
+
 // ── Static asset fallback ─────────────────────────────────────────────────────
 describe("Asset fallback", () => {
   it("unknown paths fall through to ASSETS binding", async () => {
