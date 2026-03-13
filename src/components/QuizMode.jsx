@@ -15,16 +15,10 @@ const QUIZ_TYPES = [
 
 const TOTAL_ROUNDS = 10;
 
-export function QuizMode({ words, onClose, onAnswer }) {
+export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp }) {
   const th = useTheme();
   const [quizFilter, setQuizFilter] = useState(null); // null = setup screen
-  const [reviewMap, setReviewMap] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("wortschatz-quiz-reviews") || "{}");
-    } catch {
-      return {};
-    }
-  });
+  const [reviewMap, setReviewMap] = useState(() => reviewMapProp || {});
   const [round, setRound] = useState(null);
   const [roundNum, setRoundNum] = useState(0);
   const [selected, setSelected] = useState(null);
@@ -71,12 +65,6 @@ export function QuizMode({ words, onClose, onAnswer }) {
     if (round?.type === "fill" && inputRef.current) inputRef.current.focus();
   }, [round]);
 
-  const persistReviews = (map) => {
-    try {
-      localStorage.setItem("wortschatz-quiz-reviews", JSON.stringify(map));
-    } catch {}
-  };
-
   const handleAnswer = (answer) => {
     if (correct !== null) return; // already answered
 
@@ -96,9 +84,8 @@ export function QuizMode({ words, onClose, onAnswer }) {
       },
     };
     setReviewMap(newMap);
-    persistReviews(newMap);
 
-    // Notify parent so word cards update their progress display
+    // Notify parent so word cards update their progress display (Supabase persistence)
     if (onAnswer) onAnswer(round.wordId, isCorrect);
 
     if (isCorrect) {

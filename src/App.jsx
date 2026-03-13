@@ -42,9 +42,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("woerter");
   const [showQuiz, setShowQuiz] = useState(false);
   const [tagFilter, setTagFilter] = useState(null);
-  const [reviewMap, setReviewMap] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("wortschatz-quiz-reviews") || "{}"); } catch { return {}; }
-  });
 
   useEffect(() => {
     const stored = sessionStorage.getItem("wortschatz-uid");
@@ -65,7 +62,7 @@ export default function App() {
     setDbLoading(true);
     try {
       const data = await sbFetch(`/rest/v1/vocabulary?user_id=eq.${userId}&select=*&order=added_at.desc`);
-      setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, forms:w.forms||null, mastered:w.mastered, addedAt:w.added_at, tags:w.tags||[] })));
+      setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, forms:w.forms||null, mastered:w.mastered, addedAt:w.added_at, tags:w.tags||[], quizCorrect:w.quiz_correct||0, quizTotal:w.quiz_total||0, quizLastReviewed:w.quiz_last_reviewed||null })));
     } catch(e) { console.error(e); }
     setDbLoading(false);
   }, [userId]);
@@ -125,7 +122,7 @@ export default function App() {
   const saveWord = async (finalWord, ai) => {
     const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false, tags:[] }) });
     const inserted = Array.isArray(result) ? result[0] : result;
-    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at, tags:[] }, ...prev]);
+    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at, tags:[], quizCorrect:0, quizTotal:0, quizLastReviewed:null }, ...prev]);
     setInput(""); setExpandedId(inserted.id); setSuggestion(null);
   };
 
@@ -193,17 +190,24 @@ export default function App() {
   };
 
   const handleQuizAnswer = useCallback((wordId, isCorrect) => {
-    setReviewMap(prev => {
-      const r = prev[wordId] || { correct:0, total:0 };
-      return { ...prev, [wordId]: { lastReviewed:Date.now(), correct: r.correct + (isCorrect?1:0), total: r.total+1 } };
-    });
-  }, []);
+    const word = words.find(w => w.id === wordId);
+    if (!word) return;
+    const newCorrect = (word.quizCorrect||0) + (isCorrect ? 1 : 0);
+    const newTotal = (word.quizTotal||0) + 1;
+    const now = new Date().toISOString();
+    setWords(prev => prev.map(w => w.id === wordId ? { ...w, quizCorrect:newCorrect, quizTotal:newTotal, quizLastReviewed:now } : w));
+    sbFetch(`/rest/v1/vocabulary?id=eq.${wordId}`, {
+      method:"PATCH",
+      body:JSON.stringify({ quiz_correct:newCorrect, quiz_total:newTotal, quiz_last_reviewed:now })
+    }).catch(e => console.error("Quiz save:", e));
+  }, [words]);
 
   const allTags = [...new Set(words.flatMap(w => w.tags || []))].sort();
   const filteredWords = words.filter(w => matchesTypeFilter(w, filter) && (!tagFilter || (w.tags||[]).includes(tagFilter)));
-  const quizzedCount = words.filter(w => (reviewMap[w.id]?.total||0) > 0).length;
-  const totalQuizCorrect = words.reduce((acc, w) => acc + (reviewMap[w.id]?.correct||0), 0);
-  const totalQuizAttempts = words.reduce((acc, w) => acc + (reviewMap[w.id]?.total||0), 0);
+  const reviewMap = Object.fromEntries(words.map(w => [w.id, { correct:w.quizCorrect||0, total:w.quizTotal||0, lastReviewed: w.quizLastReviewed ? new Date(w.quizLastReviewed).getTime() : 0 }]));
+  const quizzedCount = words.filter(w => (w.quizTotal||0) > 0).length;
+  const totalQuizCorrect = words.reduce((acc, w) => acc + (w.quizCorrect||0), 0);
+  const totalQuizAttempts = words.reduce((acc, w) => acc + (w.quizTotal||0), 0);
 
   if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Laden…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
@@ -377,16 +381,14 @@ export default function App() {
                           {(w.tags||[]).map(tag => <span key={tag} onClick={e => { e.stopPropagation(); setTagFilter(tag===tagFilter?null:tag); }} style={{ fontSize:10, color:th.accent, background:th.accentBg, border:`1px solid ${th.accent}33`, borderRadius:20, padding:"1px 7px", cursor:"pointer" }}>#{tag}</span>)}
                         </div>
                       )}
-                      {(() => {
-                        const r = reviewMap[w.id];
-                        if (!r || r.total === 0) return null;
-                        const dots = Math.min(r.correct, 5);
+                      {(w.quizTotal||0) > 0 && (() => {
+                        const dots = Math.min(w.quizCorrect||0, 5);
                         return (
                           <div style={{ display:"flex", gap:3, marginTop:5, alignItems:"center" }}>
                             {[1,2,3,4,5].map(i => (
                               <div key={i} style={{ width:6, height:6, borderRadius:"50%", background: i<=dots ? th.green : th.border, transition:"background 0.3s" }} />
                             ))}
-                            <span style={{ fontSize:9, color:th.textFaint, marginLeft:4 }}>🧠 {r.correct}/{r.total}</span>
+                            <span style={{ fontSize:9, color:th.textFaint, marginLeft:4 }}>🧠 {w.quizCorrect||0}/{w.quizTotal}</span>
                           </div>
                         );
                       })()}
@@ -419,17 +421,17 @@ export default function App() {
                       </div>
                       <PronunciationPractice word={w.word} />
                       <TagManager tags={w.tags||[]} onUpdate={(newTags) => updateTags(w.id, newTags)} />
-                      {reviewMap[w.id]?.total > 0 && (
+                      {(w.quizTotal||0) > 0 && (
                         <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${th.border}` }}>
                           <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Quiz-Fortschritt</div>
                           <div style={{ display:"flex", gap:4, marginBottom:6 }}>
                             {[1,2,3,4,5].map(i => (
-                              <div key={i} style={{ flex:1, height:5, borderRadius:3, background: i<=Math.min(reviewMap[w.id].correct,5) ? th.green : th.bgInset, transition:"background 0.3s" }} />
+                              <div key={i} style={{ flex:1, height:5, borderRadius:3, background: i<=Math.min(w.quizCorrect||0,5) ? th.green : th.bgInset, transition:"background 0.3s" }} />
                             ))}
                           </div>
                           <div style={{ fontSize:11, color:th.textFaint }}>
-                            {reviewMap[w.id].correct} von {reviewMap[w.id].total} Versuchen richtig
-                            {reviewMap[w.id].correct >= 5 && <span style={{ color:th.green, marginLeft:8 }}>· Gut gemeistert! ✨</span>}
+                            {w.quizCorrect||0} von {w.quizTotal} Versuchen richtig
+                            {(w.quizCorrect||0) >= 5 && <span style={{ color:th.green, marginLeft:8 }}>· Gut gemeistert! ✨</span>}
                           </div>
                         </div>
                       )}
@@ -489,7 +491,7 @@ export default function App() {
       {/* ── Modals ── */}
 
       {/* Quiz */}
-      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} onAnswer={handleQuizAnswer} />}
+      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} onAnswer={handleQuizAnswer} reviewMap={reviewMap} />}
 
       {/* Suggestion / Meintest du? */}
       {suggestion && (() => {
