@@ -40,21 +40,26 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
       setFinished(true);
       return;
     }
-    const word = selectNextWord(eligible, reviewMap);
-    if (!word) {
-      setFinished(true);
-      return;
+    // Try multiple words — buildRound can fail for some (e.g. fill-blank on expressions)
+    const tried = new Set();
+    for (let attempt = 0; attempt < eligible.length; attempt++) {
+      const word = selectNextWord(
+        eligible.filter((w) => !tried.has(w.id)),
+        reviewMap
+      );
+      if (!word) break;
+      tried.add(word.id);
+      const r = buildRound(word, eligible);
+      if (r) {
+        setRound(r);
+        setSelected(null);
+        setFillInput("");
+        setFillChecked(false);
+        setCorrect(null);
+        return;
+      }
     }
-    const r = buildRound(word, eligible);
-    if (!r) {
-      setFinished(true);
-      return;
-    }
-    setRound(r);
-    setSelected(null);
-    setFillInput("");
-    setFillChecked(false);
-    setCorrect(null);
+    setFinished(true);
   }, [roundNum, eligible, reviewMap]);
 
   useEffect(() => {

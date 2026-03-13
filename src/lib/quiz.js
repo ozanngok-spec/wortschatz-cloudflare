@@ -101,8 +101,14 @@ export function buildRound(word, allWords) {
   if (hasSentences) types.push("fill");
   if (types.length === 0) return null;
 
-  const type = types[Math.floor(Math.random() * types.length)];
-  if (type === "de-en") return buildDeToEn(word, allWords);
-  if (type === "en-de") return buildEnToDe(word, allWords);
-  return buildFillBlank(word);
+  // Shuffle types so we try in random order, falling back if one fails
+  const shuffled = shuffle(types);
+  for (const type of shuffled) {
+    let r = null;
+    if (type === "de-en") r = buildDeToEn(word, allWords);
+    else if (type === "en-de") r = buildEnToDe(word, allWords);
+    else r = buildFillBlank(word);
+    if (r) return r;
+  }
+  return null;
 }
