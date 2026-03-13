@@ -117,12 +117,22 @@ async function handleSpotifyVocab(req, env) {
   const prompt = `You are a German vocabulary assistant. A user is learning German and is listening to a song.
 
 Song: "${title}" by ${artist}
-${lyrics ? `\nLyrics (excerpt):\n${lyrics}` : "\n(No lyrics available — determine the language from the song title and artist name.)"}
+${
+  lyrics
+    ? `\nLyrics (excerpt):\n${lyrics}`
+    : "\n(No lyrics available — determine the language from the song title and artist name.)"
+}
 
 Your task:
-1. Determine the language of the song.${lyrics ? " Use the lyrics to determine this." : " Infer from the artist and title."}
+1. Determine the language of the song.${
+    lyrics
+      ? " Use the lyrics to determine this."
+      : " Infer from the artist and title."
+  }
 2. If the song is NOT in German, return: {"language": "<detected language in German, e.g. Englisch, Spanisch, Indonesisch>", "isGerman": false, "words": []}
-3. If the song IS in German${lyrics ? " and lyrics are available" : ""}, extract 5-10 useful vocabulary words or expressions that would be valuable for a B1-C1 German learner. Pick interesting, non-trivial words — skip basic words like ich, und, ist, das, ein.
+3. If the song IS in German${
+    lyrics ? " and lyrics are available" : ""
+  }, extract 5-10 useful vocabulary words or expressions that would be valuable for a B1-C1 German learner. Pick interesting, non-trivial words — skip basic words like ich, und, ist, das, ein.
 
 For each word return:
 - "word": canonical dictionary form (infinitive for verbs, nominative singular with article for nouns)
