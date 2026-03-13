@@ -58,8 +58,10 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
         });
         if (res.ok) {
           const data = await res.json();
-          setSongLanguage(data.language || null);
-          setIsGerman(!!data.isGerman);
+          const lang = data.language || null;
+          const noText = lang && /instrumental|klassik|classical/i.test(lang);
+          setSongLanguage(noText ? null : lang);
+          setIsGerman(noText ? false : !!data.isGerman);
         }
       } catch (e) { console.error("Language detection failed:", e); }
       setVocabLoading(false);

@@ -131,8 +131,9 @@ Your task:
       ? " Use the lyrics to determine this."
       : " Infer from the artist and title."
   }
-2. If the song is NOT in German, return: {"language": "<detected language in German, e.g. Englisch, Spanisch, Indonesisch>", "isGerman": false, "words": []}
-3. If the song IS in German${
+2. If the song is instrumental, classical, or has no vocals/text, return: {"language": "Instrumental", "isGerman": false, "words": []}
+3. If the song is NOT in German, return: {"language": "<detected language in German, e.g. Englisch, Spanisch, Indonesisch>", "isGerman": false, "words": []}
+4. If the song IS in German${
     lyrics ? " and lyrics are available" : ""
   }, extract 5-10 useful vocabulary words or expressions that would be valuable for a B1-C1 German learner. Pick interesting, non-trivial words — skip basic words like ich, und, ist, das, ein.
 
