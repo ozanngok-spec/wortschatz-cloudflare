@@ -69,12 +69,42 @@ Return ONLY the raw JSON object, no markdown, no code fences.`;
   });
 }
 
+async function handleWotd(req, env) {
+  const date = new Date().toISOString().slice(0, 10);
+  const prompt = `Today is ${date}. Choose one interesting German word or expression suitable for an advanced learner (B2-C1 level). Prefer culturally rich compound words (Komposita), idiomatic expressions (Redewendungen), or nuanced verbs. Make it varied — don't always pick nouns.
+
+Return a JSON object with:
+- "word": the word or expression
+- "translation": English translation (concise)
+- "type": one of "Nomen", "Verb", "Adjektiv", "Adverb", "Ausdruck"
+- "level": CEFR level, one of "A1","A2","B1","B2","C1","C2"
+- "explanation": a brief explanation in German (1-2 sentences)
+- "sentences": array of exactly 2 objects, each with "german" (example sentence) and "english" (translation)
+- "forms": grammatical forms:
+  - If Nomen: "der/die/das Word (plural)" e.g. "der Hund (die Hunde)"
+  - If Verb: "3rd person present, past tense, perfect" e.g. "läuft, lief, ist gelaufen"
+  - Otherwise: null
+- "funFact": one interesting cultural or linguistic note about the word, in German (1 sentence)
+
+Return ONLY the raw JSON object, no markdown, no code fences.`;
+
+  const text = await callClaude(env.ANTHROPIC_API_KEY, prompt, 800);
+  const json = JSON.parse(stripFences(text));
+  return new Response(JSON.stringify(json), {
+    headers: { "Content-Type": "application/json", ...CORS },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS });
+    }
+
+    if (request.method === "GET" && url.pathname === "/wotd") {
+      return handleWotd(request, env);
     }
 
     if (request.method === "POST" && url.pathname === "/claude") {
