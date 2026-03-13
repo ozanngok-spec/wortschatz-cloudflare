@@ -10,6 +10,8 @@ import { WordOfTheDay } from "./components/WordOfTheDay.jsx";
 import { PinScreen } from "./components/PinScreen.jsx";
 import { TagManager } from "./components/TagManager.jsx";
 import { TextAnalyzer } from "./components/TextAnalyzer.jsx";
+import { SpotifyPlayer } from "./components/SpotifyPlayer.jsx";
+import { handleCallback as handleSpotifyCallback } from "./lib/spotify.js";
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -43,6 +45,7 @@ export default function App() {
     const stored = sessionStorage.getItem("wortschatz-uid");
     if (stored) setUserId(stored);
     setStorageLoading(false);
+    handleSpotifyCallback();
   }, []);
 
   const handlePin = async (pin) => {
@@ -120,6 +123,13 @@ export default function App() {
     const inserted = Array.isArray(result) ? result[0] : result;
     setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at, tags:[] }, ...prev]);
     setInput(""); setExpandedId(inserted.id); setSuggestion(null);
+  };
+
+  const handleAddFromExternal = async (wordStr) => {
+    const ai = await fetchExampleSentences(wordStr);
+    const finalWord = ai.word || wordStr;
+    if (words.find(w => w.word.toLowerCase() === finalWord.toLowerCase())) return;
+    await saveWord(finalWord, ai);
   };
 
   const acceptSuggestion = () => { if (suggestion) saveWord(suggestion.corrected, suggestion.ai); };
@@ -274,6 +284,13 @@ export default function App() {
           onRefresh={handleRefreshWotd}
         />
       </div>
+
+      {/* Spotify */}
+      {userId && (
+        <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 0":"12px 36px 0" }}>
+          <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} />
+        </div>
+      )}
 
       {/* Text Analyzer */}
       {showAnalyzer && (
