@@ -15,7 +15,7 @@ const QUIZ_TYPES = [
 
 const TOTAL_ROUNDS = 10;
 
-export function QuizMode({ words, onClose }) {
+export function QuizMode({ words, onClose, onAnswer }) {
   const th = useTheme();
   const [quizFilter, setQuizFilter] = useState(null); // null = setup screen
   const [reviewMap, setReviewMap] = useState(() => {
@@ -85,7 +85,7 @@ export function QuizMode({ words, onClose }) {
     setCorrect(isCorrect);
     setSelected(answer);
 
-    // Update review map
+    // Update local review map (for spaced repetition ordering)
     const now = Date.now();
     const newMap = {
       ...reviewMap,
@@ -97,6 +97,9 @@ export function QuizMode({ words, onClose }) {
     };
     setReviewMap(newMap);
     persistReviews(newMap);
+
+    // Notify parent so word cards update their progress display
+    if (onAnswer) onAnswer(round.wordId, isCorrect);
 
     if (isCorrect) {
       setScore((s) => s + 1);

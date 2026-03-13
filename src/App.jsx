@@ -42,6 +42,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("woerter");
   const [showQuiz, setShowQuiz] = useState(false);
   const [tagFilter, setTagFilter] = useState(null);
+  const [reviewMap, setReviewMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wortschatz-quiz-reviews") || "{}"); } catch { return {}; }
+  });
 
   useEffect(() => {
     const stored = sessionStorage.getItem("wortschatz-uid");
@@ -189,8 +192,18 @@ export default function App() {
     setWords(prev => prev.map(w => w.id===id ? { ...w, mastered:!current } : w));
   };
 
+  const handleQuizAnswer = useCallback((wordId, isCorrect) => {
+    setReviewMap(prev => {
+      const r = prev[wordId] || { correct:0, total:0 };
+      return { ...prev, [wordId]: { lastReviewed:Date.now(), correct: r.correct + (isCorrect?1:0), total: r.total+1 } };
+    });
+  }, []);
+
   const allTags = [...new Set(words.flatMap(w => w.tags || []))].sort();
   const filteredWords = words.filter(w => matchesTypeFilter(w, filter) && (!tagFilter || (w.tags||[]).includes(tagFilter)));
+  const quizzedCount = words.filter(w => (reviewMap[w.id]?.total||0) > 0).length;
+  const totalQuizCorrect = words.reduce((acc, w) => acc + (reviewMap[w.id]?.correct||0), 0);
+  const totalQuizAttempts = words.reduce((acc, w) => acc + (reviewMap[w.id]?.total||0), 0);
 
   if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Laden…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
@@ -292,13 +305,21 @@ export default function App() {
                   <div style={{ height:"100%", width:`${(words.filter(w=>w.mastered).length/words.length)*100}%`, background:th.green, borderRadius:2, transition:"width 0.4s" }} />
                 </div>
               )}
+              {totalQuizAttempts > 0 && (
+                <div style={{ fontSize:10, color:th.textFaint, display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
+                  <span>🧠</span>
+                  <span>{quizzedCount} geübt</span>
+                  <span style={{ color:th.textDim }}>·</span>
+                  <span style={{ color:th.green }}>{Math.round(totalQuizCorrect/totalQuizAttempts*100)}% richtig</span>
+                </div>
+              )}
             </div>
 
             {/* Quiz card */}
             <button onClick={() => setShowQuiz(true)} style={{ flex:1, minWidth:140, background: th.isDark ? `linear-gradient(135deg, #1a1430 0%, #0f0d1a 100%)` : `linear-gradient(135deg, #eae8ff 0%, #f0eeff 100%)`, border:`1.5px solid ${th.accent}44`, borderRadius:14, padding:"14px 18px", cursor:"pointer", textAlign:"left", display:"flex", flexDirection:"column", gap:4, boxShadow:`0 2px 20px ${th.accent}22` }}>
               <div style={{ fontSize:24 }}>🧠</div>
               <div style={{ fontSize:13, fontWeight:600, color:th.accent }}>Quiz starten</div>
-              <div style={{ fontSize:11, color:th.textMuted }}>{words.filter(w=>!w.mastered).length} Wörter bereit</div>
+              <div style={{ fontSize:11, color:th.textMuted }}>{words.filter(w=>!w.mastered).length} bereit{quizzedCount > 0 ? ` · ${quizzedCount} geübt` : ""}</div>
             </button>
           </div>
 
@@ -356,6 +377,19 @@ export default function App() {
                           {(w.tags||[]).map(tag => <span key={tag} onClick={e => { e.stopPropagation(); setTagFilter(tag===tagFilter?null:tag); }} style={{ fontSize:10, color:th.accent, background:th.accentBg, border:`1px solid ${th.accent}33`, borderRadius:20, padding:"1px 7px", cursor:"pointer" }}>#{tag}</span>)}
                         </div>
                       )}
+                      {(() => {
+                        const r = reviewMap[w.id];
+                        if (!r || r.total === 0) return null;
+                        const dots = Math.min(r.correct, 5);
+                        return (
+                          <div style={{ display:"flex", gap:3, marginTop:5, alignItems:"center" }}>
+                            {[1,2,3,4,5].map(i => (
+                              <div key={i} style={{ width:6, height:6, borderRadius:"50%", background: i<=dots ? th.green : th.border, transition:"background 0.3s" }} />
+                            ))}
+                            <span style={{ fontSize:9, color:th.textFaint, marginLeft:4 }}>🧠 {r.correct}/{r.total}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
                       <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 8px", fontSize:10, fontFamily:"inherit", fontWeight:500, cursor:"pointer" }}>
@@ -385,6 +419,20 @@ export default function App() {
                       </div>
                       <PronunciationPractice word={w.word} />
                       <TagManager tags={w.tags||[]} onUpdate={(newTags) => updateTags(w.id, newTags)} />
+                      {reviewMap[w.id]?.total > 0 && (
+                        <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${th.border}` }}>
+                          <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Quiz-Fortschritt</div>
+                          <div style={{ display:"flex", gap:4, marginBottom:6 }}>
+                            {[1,2,3,4,5].map(i => (
+                              <div key={i} style={{ flex:1, height:5, borderRadius:3, background: i<=Math.min(reviewMap[w.id].correct,5) ? th.green : th.bgInset, transition:"background 0.3s" }} />
+                            ))}
+                          </div>
+                          <div style={{ fontSize:11, color:th.textFaint }}>
+                            {reviewMap[w.id].correct} von {reviewMap[w.id].total} Versuchen richtig
+                            {reviewMap[w.id].correct >= 5 && <span style={{ color:th.green, marginLeft:8 }}>· Gut gemeistert! ✨</span>}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ fontSize:9, color:th.textDim, marginTop:14 }}>Hinzugefügt am {new Date(w.addedAt).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"})}</div>
                     </div>
                   )}
@@ -441,7 +489,7 @@ export default function App() {
       {/* ── Modals ── */}
 
       {/* Quiz */}
-      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} />}
+      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} onAnswer={handleQuizAnswer} />}
 
       {/* Suggestion / Meintest du? */}
       {suggestion && (() => {
