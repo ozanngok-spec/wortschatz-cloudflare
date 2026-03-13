@@ -71,7 +71,7 @@ Return ONLY the raw JSON object, no markdown, no code fences.`;
 
 async function handleWotd(req, env) {
   const date = new Date().toISOString().slice(0, 10);
-  const prompt = `Today is ${date}. Choose one interesting German word or expression suitable for an advanced learner (B2-C1 level). Prefer culturally rich compound words (Komposita), idiomatic expressions (Redewendungen), or nuanced verbs. Make it varied — don't always pick nouns.
+  const prompt = `Today is ${date}. Choose one interesting German word or expression for an advanced learner. It MUST be B2, C1, or C2 level — never below B2. It can be a single word or a multi-word expression (Redewendung, Sprichwort, idiom, or compound). Vary the type freely: sometimes a verb, sometimes an Ausdruck, sometimes a Nomen or Adjektiv. Prefer culturally rich, nuanced, or surprising choices that a native speaker would find natural but a learner might not know.
 
 Return a JSON object with:
 - "word": the word or expression

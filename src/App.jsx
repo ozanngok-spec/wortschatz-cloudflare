@@ -304,7 +304,7 @@ function PronunciationPractice({ word }) {
 
 
 // ── Word of the Day ──────────────────────────────────────────────────────────
-function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding }) {
+function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRefresh }) {
   const th = useTheme();
   const [expanded, setExpanded] = useState(true);
   const today = new Date().toLocaleDateString("de-DE", { weekday:"long", day:"numeric", month:"long" });
@@ -362,10 +362,17 @@ function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding }) {
               💡 {wotd.funFact}
             </div>
           )}
-          <button onClick={onAdd} disabled={alreadyAdded || adding}
-            style={{ background:alreadyAdded||adding?"transparent":th.accent, color:alreadyAdded?th.textFaint:adding?th.textMuted:"#fff", border:alreadyAdded||adding?`1px solid ${borderColor}`:"none", borderRadius:8, padding:"8px 18px", fontSize:12, fontFamily:"inherit", fontWeight:600, cursor:alreadyAdded||adding?"default":"pointer", transition:"all 0.2s" }}>
-            {alreadyAdded ? "✓ Bereits in deinem Wortschatz" : adding ? "Wird hinzugefügt…" : "+ Zum Wortschatz hinzufügen"}
-          </button>
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+            <button onClick={onAdd} disabled={alreadyAdded || adding}
+              style={{ background:alreadyAdded||adding?"transparent":th.accent, color:alreadyAdded?th.textFaint:adding?th.textMuted:"#fff", border:alreadyAdded||adding?`1px solid ${borderColor}`:"none", borderRadius:8, padding:"8px 18px", fontSize:12, fontFamily:"inherit", fontWeight:600, cursor:alreadyAdded||adding?"default":"pointer", transition:"all 0.2s" }}>
+              {alreadyAdded ? "✓ Bereits in deinem Wortschatz" : adding ? "Wird hinzugefügt…" : "+ Zum Wortschatz hinzufügen"}
+            </button>
+            <button onClick={onRefresh} disabled={loading}
+              style={{ background:"transparent", border:`1px solid ${borderColor}`, borderRadius:8, padding:"8px 14px", fontSize:12, fontFamily:"inherit", color:loading?th.textFaint:th.isDark?"#A78BFA":"#5B21B6", cursor:loading?"not-allowed":"pointer", display:"flex", alignItems:"center", gap:5, transition:"all 0.2s" }}>
+              <span style={{ display:"inline-block", animation:loading?"spin 1s linear infinite":"none" }}>⟳</span>
+              {loading ? "Wird geladen…" : "Neues Wort"}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -429,6 +436,7 @@ export default function App() {
   const [wotd, setWotd] = useState(null);
   const [wotdLoading, setWotdLoading] = useState(true);
   const [wotdAdding, setWotdAdding] = useState(false);
+  const [wotdDbId, setWotdDbId] = useState(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem("wortschatz-uid");
@@ -458,15 +466,22 @@ export default function App() {
   useEffect(() => {
     if (!userId) return;
     const today = new Date().toISOString().slice(0, 10);
-    try {
-      const cached = JSON.parse(localStorage.getItem("wortschatz-wotd") || "null");
-      if (cached && cached.date === today) { setWotd(cached.data); setWotdLoading(false); return; }
-    } catch(e) {}
     setWotdLoading(true);
-    fetchWordOfTheDay()
-      .then(data => { setWotd(data); localStorage.setItem("wortschatz-wotd", JSON.stringify({ date: today, data })); })
-      .catch(e => console.error("WOTD:", e))
-      .finally(() => setWotdLoading(false));
+    sbFetch(`/rest/v1/word_of_the_day?user_id=eq.${userId}&date=eq.${today}&select=*`)
+      .then(rows => {
+        if (rows && rows.length > 0) {
+          setWotd(rows[0].data); setWotdDbId(rows[0].id); setWotdLoading(false);
+        } else {
+          fetchWordOfTheDay()
+            .then(data => {
+              setWotd(data);
+              return sbFetch("/rest/v1/word_of_the_day", { method:"POST", body:JSON.stringify({ user_id:userId, date:today, data }) })
+                .then(res => { if (res && res.length > 0) setWotdDbId(res[0].id); });
+            })
+            .finally(() => setWotdLoading(false));
+        }
+      })
+      .catch(e => { console.error("WOTD:", e); setWotdLoading(false); });
   }, [userId]);
 
   const save = async (updated) => {}; // unused in deploy, Supabase handles persistence
@@ -531,6 +546,23 @@ export default function App() {
     setWotdAdding(true);
     try { await saveWord(wotd.word, wotd); } catch(e) { console.error(e); }
     setWotdAdding(false);
+  };
+
+  const handleRefreshWotd = async () => {
+    if (wotdLoading) return;
+    const today = new Date().toISOString().slice(0, 10);
+    setWotdLoading(true);
+    try {
+      const data = await fetchWordOfTheDay();
+      if (wotdDbId) {
+        await sbFetch(`/rest/v1/word_of_the_day?id=eq.${wotdDbId}`, { method:"PATCH", body:JSON.stringify({ data }) });
+      } else {
+        const res = await sbFetch("/rest/v1/word_of_the_day", { method:"POST", body:JSON.stringify({ user_id:userId, date:today, data }) });
+        if (res && res.length > 0) setWotdDbId(res[0].id);
+      }
+      setWotd(data);
+    } catch(e) { console.error("WOTD refresh:", e); }
+    setWotdLoading(false);
   };
 
   const toggleMastered = async (id, current) => {
@@ -612,6 +644,7 @@ export default function App() {
           alreadyAdded={!!(wotd && words.some(w => w.word.toLowerCase() === wotd.word.toLowerCase()))}
           onAdd={handleAddWotd}
           adding={wotdAdding}
+          onRefresh={handleRefreshWotd}
         />
       </div>
 
