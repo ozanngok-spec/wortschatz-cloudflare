@@ -244,4 +244,55 @@ describe("buildRound", () => {
       if (round) expect(round.wordId).toBe(eligible[0].id);
     }
   });
+
+  it("falls back to MC when fill-blank fails for multi-word expressions", () => {
+    // Simulate an Ausdruck whose word doesn't appear verbatim in sentences
+    const ausdruck = {
+      id: "a1",
+      word: "auf jeden Fall",
+      translation: "in any case",
+      type: "Ausdruck",
+      mastered: false,
+      sentences: [
+        { german: "Das machen wir auf alle Fälle.", english: "We will do that in any case." },
+      ],
+    };
+    const pool = [
+      ausdruck,
+      { id: "a2", word: "trotzdem", translation: "nevertheless", type: "Adverb", mastered: false, sentences: [] },
+      { id: "a3", word: "allerdings", translation: "however", type: "Adverb", mastered: false, sentences: [] },
+      { id: "a4", word: "jedenfalls", translation: "anyway", type: "Adverb", mastered: false, sentences: [] },
+    ];
+    // fill-blank will fail (word not in sentence), should fall back to de-en or en-de
+    for (let i = 0; i < 20; i++) {
+      const round = buildRound(ausdruck, pool);
+      expect(round).not.toBeNull();
+      expect(["de-en", "en-de"]).toContain(round.type);
+      expect(round.wordId).toBe("a1");
+    }
+  });
+
+  it("falls back to fill when not enough words for MC", () => {
+    // Only 2 non-mastered words → MC needs 4, but fill should work
+    // Sentence must contain the exact word for fill-blank to succeed
+    const small = [
+      { id: "s1", word: "Hund", translation: "dog", type: "Nomen", mastered: false,
+        sentences: [{ german: "Der Hund ist groß.", english: "The dog is big." }] },
+      { id: "s2", word: "Katze", translation: "cat", type: "Nomen", mastered: false,
+        sentences: [{ german: "Die Katze schläft.", english: "The cat sleeps." }] },
+    ];
+    for (let i = 0; i < 20; i++) {
+      const round = buildRound(small[0], small);
+      expect(round).not.toBeNull();
+      expect(round.type).toBe("fill");
+    }
+  });
+
+  it("returns null only when ALL round types are exhausted", () => {
+    // Single word, no sentences, not enough for MC → truly impossible
+    const impossible = [
+      { id: "z1", word: "x", translation: "y", type: "Nomen", mastered: false, sentences: [] },
+    ];
+    expect(buildRound(impossible[0], impossible)).toBeNull();
+  });
 });
