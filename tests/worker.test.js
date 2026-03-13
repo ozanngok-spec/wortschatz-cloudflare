@@ -8,9 +8,18 @@ const MOCK_CLAUDE_WORD = {
   level: "B2",
   explanation: "Beschreibt einen Zustand innerer Ruhe.",
   sentences: [
-    { german: "Sie bewunderte seine Gelassenheit.", english: "She admired his composure." },
-    { german: "Mit Gelassenheit meisterte er die Krise.", english: "He mastered the crisis with serenity." },
-    { german: "Gelassenheit ist eine Tugend.", english: "Composure is a virtue." },
+    {
+      german: "Sie bewunderte seine Gelassenheit.",
+      english: "She admired his composure.",
+    },
+    {
+      german: "Mit Gelassenheit meisterte er die Krise.",
+      english: "He mastered the crisis with serenity.",
+    },
+    {
+      german: "Gelassenheit ist eine Tugend.",
+      english: "Composure is a virtue.",
+    },
   ],
   forms: "die Gelassenheit (die Gelassenheiten)",
 };
@@ -80,7 +89,9 @@ function makeReq(method, path, body) {
 
 const mockEnv = {
   ANTHROPIC_API_KEY: "test-key-123",
-  ASSETS: { fetch: vi.fn(() => new Response("<!DOCTYPE html>...", { status: 200 })) },
+  ASSETS: {
+    fetch: vi.fn(() => new Response("<!DOCTYPE html>...", { status: 200 })),
+  },
 };
 
 // ── CORS preflight ────────────────────────────────────────────────────────────
@@ -100,9 +111,10 @@ describe("POST /claude", () => {
   it("returns word analysis JSON", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        content: [{ text: JSON.stringify(MOCK_CLAUDE_WORD) }],
-      }),
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_CLAUDE_WORD) }],
+        }),
     });
 
     const req = makeReq("POST", "/claude", { word: "Gelassenheit" });
@@ -137,12 +149,16 @@ describe("POST /pronounce", () => {
   it("returns pronunciation feedback", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        content: [{ text: JSON.stringify(MOCK_PRONUNCIATION) }],
-      }),
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_PRONUNCIATION) }],
+        }),
     });
 
-    const req = makeReq("POST", "/pronounce", { word: "Gelassenheit", transcript: "gelassenheit" });
+    const req = makeReq("POST", "/pronounce", {
+      word: "Gelassenheit",
+      transcript: "gelassenheit",
+    });
     const res = await workerDefault.fetch(req, mockEnv);
     const data = await res.json();
 
@@ -157,9 +173,10 @@ describe("GET /wotd", () => {
   it("returns word of the day", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        content: [{ text: JSON.stringify(MOCK_WOTD) }],
-      }),
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_WOTD) }],
+        }),
     });
 
     const req = new Request("https://test.com/wotd", { method: "GET" });
@@ -177,9 +194,10 @@ describe("POST /spotify-vocab", () => {
   it("returns German vocab when song is German", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        content: [{ text: JSON.stringify(MOCK_SPOTIFY_GERMAN) }],
-      }),
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_SPOTIFY_GERMAN) }],
+        }),
     });
 
     const req = makeReq("POST", "/spotify-vocab", {
@@ -198,9 +216,10 @@ describe("POST /spotify-vocab", () => {
   it("returns non-German result for English songs", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        content: [{ text: JSON.stringify(MOCK_SPOTIFY_ENGLISH) }],
-      }),
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_SPOTIFY_ENGLISH) }],
+        }),
     });
 
     const req = makeReq("POST", "/spotify-vocab", {
@@ -218,9 +237,10 @@ describe("POST /spotify-vocab", () => {
   it("handles null lyrics (language-only detection)", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({
-        content: [{ text: JSON.stringify(MOCK_SPOTIFY_ENGLISH) }],
-      }),
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_SPOTIFY_ENGLISH) }],
+        }),
     });
 
     const req = makeReq("POST", "/spotify-vocab", {

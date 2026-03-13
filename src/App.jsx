@@ -11,6 +11,7 @@ import { PinScreen } from "./components/PinScreen.jsx";
 import { TagManager } from "./components/TagManager.jsx";
 import { TextAnalyzer } from "./components/TextAnalyzer.jsx";
 import { SpotifyPlayer } from "./components/SpotifyPlayer.jsx";
+import { QuizMode } from "./components/QuizMode.jsx";
 import { handleCallback as handleSpotifyCallback } from "./lib/spotify.js";
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
   const [wotdAdding, setWotdAdding] = useState(false);
   const [wotdDbId, setWotdDbId] = useState(null);
   const [showAnalyzer, setShowAnalyzer] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [tagFilter, setTagFilter] = useState(null);
 
   useEffect(() => {
@@ -211,6 +213,7 @@ export default function App() {
               <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
             </div>
             <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={() => setShowQuiz(true)} style={{ background:th.bgCard, color:th.textMuted, border:`1px solid ${th.border}`, borderRadius:6, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "🧠" : "🧠 Quiz"}</button>
             <button onClick={() => setShowAnalyzer(s => !s)} style={{ background:showAnalyzer?th.accent:th.bgCard, color:showAnalyzer?"#fff":th.textMuted, border:`1px solid ${showAnalyzer?th.accent:th.border}`, borderRadius:6, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "📝" : "📝 Analyse"}</button>
             <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "🔒" : "Sperren"}</button>
             <button onClick={toggleDark} title={darkMode ? "Heller Modus" : "Dunkler Modus"}
@@ -408,6 +411,9 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* Quiz */}
+      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} />}
 
       {/* Löschen */}
       {deleteConfirmId && (

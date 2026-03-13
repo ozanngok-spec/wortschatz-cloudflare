@@ -13,16 +13,26 @@ const MOCK_WORD_RESPONSE = {
   level: "B2",
   explanation: "Beschreibt einen Zustand innerer Ruhe und Ausgeglichenheit.",
   sentences: [
-    { german: "Sie bewunderte seine Gelassenheit.", english: "She admired his composure." },
-    { german: "Mit Gelassenheit meisterte er die Krise.", english: "He mastered the crisis with serenity." },
-    { german: "Gelassenheit ist eine Tugend.", english: "Composure is a virtue." },
+    {
+      german: "Sie bewunderte seine Gelassenheit.",
+      english: "She admired his composure.",
+    },
+    {
+      german: "Mit Gelassenheit meisterte er die Krise.",
+      english: "He mastered the crisis with serenity.",
+    },
+    {
+      german: "Gelassenheit ist eine Tugend.",
+      english: "Composure is a virtue.",
+    },
   ],
   forms: "die Gelassenheit (die Gelassenheiten)",
 };
 
 const MOCK_PRONUNCIATION = {
   score: 72,
-  feedback: "Gut gemacht! Die Betonung war richtig, aber das 'ch' könnte weicher sein.",
+  feedback:
+    "Gut gemacht! Die Betonung war richtig, aber das 'ch' könnte weicher sein.",
   highlights: [
     { token: "Ge", quality: "gut" },
     { token: "las", quality: "gut" },
@@ -36,13 +46,21 @@ const MOCK_WOTD = {
   translation: "earworm (a catchy song stuck in your head)",
   type: "Nomen",
   level: "B2",
-  explanation: "Ein Ohrwurm ist ein Lied, das man nicht mehr aus dem Kopf bekommt.",
+  explanation:
+    "Ein Ohrwurm ist ein Lied, das man nicht mehr aus dem Kopf bekommt.",
   sentences: [
-    { german: "Dieses Lied ist ein totaler Ohrwurm.", english: "This song is a total earworm." },
-    { german: "Ich habe seit Tagen einen Ohrwurm.", english: "I've had an earworm for days." },
+    {
+      german: "Dieses Lied ist ein totaler Ohrwurm.",
+      english: "This song is a total earworm.",
+    },
+    {
+      german: "Ich habe seit Tagen einen Ohrwurm.",
+      english: "I've had an earworm for days.",
+    },
   ],
   forms: "der Ohrwurm (die Ohrwürmer)",
-  funFact: "Das Wort kombiniert 'Ohr' (ear) und 'Wurm' (worm) — ein Wurm, der sich ins Ohr bohrt.",
+  funFact:
+    "Das Wort kombiniert 'Ohr' (ear) und 'Wurm' (worm) — ein Wurm, der sich ins Ohr bohrt.",
 };
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -77,7 +95,9 @@ describe("fetchExampleSentences", () => {
       text: () => Promise.resolve("Internal Server Error"),
     });
 
-    await expect(fetchExampleSentences("fail")).rejects.toThrow("Proxy error 500");
+    await expect(fetchExampleSentences("fail")).rejects.toThrow(
+      "Proxy error 500"
+    );
   });
 
   it("returns all expected fields in response shape", async () => {
@@ -106,12 +126,18 @@ describe("fetchPronunciationFeedback", () => {
       json: () => Promise.resolve(MOCK_PRONUNCIATION),
     });
 
-    const result = await fetchPronunciationFeedback("Gelassenheit", "gelassenheit");
+    const result = await fetchPronunciationFeedback(
+      "Gelassenheit",
+      "gelassenheit"
+    );
 
     expect(fetch).toHaveBeenCalledWith("/pronounce", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ word: "Gelassenheit", transcript: "gelassenheit" }),
+      body: JSON.stringify({
+        word: "Gelassenheit",
+        transcript: "gelassenheit",
+      }),
     });
     expect(result.score).toBeGreaterThanOrEqual(0);
     expect(result.score).toBeLessThanOrEqual(100);
@@ -126,9 +152,9 @@ describe("fetchPronunciationFeedback", () => {
       status: 502,
     });
 
-    await expect(
-      fetchPronunciationFeedback("fail", "fail")
-    ).rejects.toThrow("Proxy error 502");
+    await expect(fetchPronunciationFeedback("fail", "fail")).rejects.toThrow(
+      "Proxy error 502"
+    );
   });
 });
 

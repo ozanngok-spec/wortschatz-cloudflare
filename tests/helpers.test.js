@@ -12,7 +12,11 @@ const verb = { word: "laufen", type: "Verb", mastered: true };
 const adj = { word: "schnell", type: "Adjektiv", mastered: false };
 const adverb = { word: "trotzdem", type: "Adverb", mastered: false };
 const ausdruck = { word: "Na klar!", type: "Ausdruck", mastered: false };
-const redewendung = { word: "ins Gras beißen", type: "Redewendung", mastered: false };
+const redewendung = {
+  word: "ins Gras beißen",
+  type: "Redewendung",
+  mastered: false,
+};
 const noType = { word: "xyz", type: "", mastered: false };
 const mastered = { word: "gut", type: "Adjektiv", mastered: true };
 

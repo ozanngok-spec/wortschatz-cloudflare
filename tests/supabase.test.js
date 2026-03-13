@@ -51,7 +51,9 @@ describe("sbFetch", () => {
       text: () => Promise.resolve("Unauthorized"),
     });
 
-    await expect(sbFetch("/rest/v1/vocabulary")).rejects.toThrow("Supabase 401");
+    await expect(sbFetch("/rest/v1/vocabulary")).rejects.toThrow(
+      "Supabase 401"
+    );
   });
 
   it("merges custom headers with defaults", async () => {

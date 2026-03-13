@@ -10,9 +10,15 @@ import {
 const localStore = {};
 const localStorageMock = {
   getItem: vi.fn((key) => localStore[key] || null),
-  setItem: vi.fn((key, val) => { localStore[key] = val; }),
-  removeItem: vi.fn((key) => { delete localStore[key]; }),
-  clear: vi.fn(() => { Object.keys(localStore).forEach((k) => delete localStore[k]); }),
+  setItem: vi.fn((key, val) => {
+    localStore[key] = val;
+  }),
+  removeItem: vi.fn((key) => {
+    delete localStore[key];
+  }),
+  clear: vi.fn(() => {
+    Object.keys(localStore).forEach((k) => delete localStore[k]);
+  }),
 };
 vi.stubGlobal("localStorage", localStorageMock);
 
@@ -20,8 +26,12 @@ vi.stubGlobal("localStorage", localStorageMock);
 const sessionStore = {};
 vi.stubGlobal("sessionStorage", {
   getItem: vi.fn((key) => sessionStore[key] || null),
-  setItem: vi.fn((key, val) => { sessionStore[key] = val; }),
-  removeItem: vi.fn((key) => { delete sessionStore[key]; }),
+  setItem: vi.fn((key, val) => {
+    sessionStore[key] = val;
+  }),
+  removeItem: vi.fn((key) => {
+    delete sessionStore[key];
+  }),
 });
 
 // ── window.location mock ──────────────────────────────────────────────────────
@@ -60,8 +70,12 @@ beforeEach(() => {
   localStorageMock.clear();
   // re-bind since clear removes them
   localStorageMock.getItem = vi.fn((key) => localStore[key] || null);
-  localStorageMock.setItem = vi.fn((key, val) => { localStore[key] = val; });
-  localStorageMock.removeItem = vi.fn((key) => { delete localStore[key]; });
+  localStorageMock.setItem = vi.fn((key, val) => {
+    localStore[key] = val;
+  });
+  localStorageMock.removeItem = vi.fn((key) => {
+    delete localStore[key];
+  });
 });
 
 // ── Token management ──────────────────────────────────────────────────────────
@@ -84,9 +98,13 @@ describe("Token management", () => {
   });
 
   it("clearTokens removes stored tokens", () => {
-    localStore["wortschatz-spotify-user1"] = JSON.stringify({ access_token: "x" });
+    localStore["wortschatz-spotify-user1"] = JSON.stringify({
+      access_token: "x",
+    });
     clearTokens("user1");
-    expect(localStorageMock.removeItem).toHaveBeenCalledWith("wortschatz-spotify-user1");
+    expect(localStorageMock.removeItem).toHaveBeenCalledWith(
+      "wortschatz-spotify-user1"
+    );
   });
 
   it("isConnected returns true when tokens exist", () => {
@@ -101,8 +119,12 @@ describe("Token management", () => {
   });
 
   it("tokens are per-user (different keys)", () => {
-    localStore["wortschatz-spotify-alice"] = JSON.stringify({ access_token: "alice_token" });
-    localStore["wortschatz-spotify-bob"] = JSON.stringify({ access_token: "bob_token" });
+    localStore["wortschatz-spotify-alice"] = JSON.stringify({
+      access_token: "alice_token",
+    });
+    localStore["wortschatz-spotify-bob"] = JSON.stringify({
+      access_token: "bob_token",
+    });
 
     expect(getTokens("alice").access_token).toBe("alice_token");
     expect(getTokens("bob").access_token).toBe("bob_token");
