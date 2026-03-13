@@ -78,3 +78,15 @@ export const levelColor = (level, th) => {
   if (l === "C2") return { bg: "#3A1A2E", text: "#E87AB0" };
   return { bg: "#2A2A2A", text: "#888" };
 };
+
+/** Clean and normalise tags from AI response */
+export const parseAutoTags = (tags) => {
+  if (!Array.isArray(tags)) return [];
+  return tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean);
+};
+
+/** Build a source label for Spotify words */
+export const buildSpotifySource = (trackName, artistName) => {
+  if (!trackName) return null;
+  return `🎵 ${trackName}${artistName ? " \u2013 " + artistName : ""}`;
+};

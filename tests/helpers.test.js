@@ -4,6 +4,8 @@ import {
   matchesTypeFilter,
   typeColor,
   levelColor,
+  parseAutoTags,
+  buildSpotifySource,
 } from "../src/lib/helpers.js";
 
 // ── Mock words ────────────────────────────────────────────────────────────────
@@ -151,5 +153,54 @@ describe("levelColor", () => {
   it("handles null/undefined", () => {
     expect(() => levelColor(null, dark)).not.toThrow();
     expect(() => levelColor(undefined, null)).not.toThrow();
+  });
+});
+
+// ── parseAutoTags ─────────────────────────────────────────────────────────────
+describe("parseAutoTags", () => {
+  it("extracts and lowercases valid tags", () => {
+    expect(parseAutoTags(["Reise", "Kultur"])).toEqual(["reise", "kultur"]);
+  });
+
+  it("trims whitespace", () => {
+    expect(parseAutoTags(["  essen ", "alltag"])).toEqual(["essen", "alltag"]);
+  });
+
+  it("filters out empty strings", () => {
+    expect(parseAutoTags(["natur", "", "  "])).toEqual(["natur"]);
+  });
+
+  it("returns empty array for non-array input", () => {
+    expect(parseAutoTags(null)).toEqual([]);
+    expect(parseAutoTags(undefined)).toEqual([]);
+    expect(parseAutoTags("not-an-array")).toEqual([]);
+    expect(parseAutoTags(42)).toEqual([]);
+  });
+
+  it("handles empty array", () => {
+    expect(parseAutoTags([])).toEqual([]);
+  });
+
+  it("coerces non-string items to strings", () => {
+    expect(parseAutoTags([123, true])).toEqual(["123", "true"]);
+  });
+});
+
+// ── buildSpotifySource ────────────────────────────────────────────────────────
+describe("buildSpotifySource", () => {
+  it("builds source label with track and artist", () => {
+    expect(buildSpotifySource("99 Luftballons", "Nena")).toBe(
+      "🎵 99 Luftballons – Nena"
+    );
+  });
+
+  it("works without artist name", () => {
+    expect(buildSpotifySource("Atemlos", null)).toBe("🎵 Atemlos");
+    expect(buildSpotifySource("Atemlos", "")).toBe("🎵 Atemlos");
+  });
+
+  it("returns null for missing track name", () => {
+    expect(buildSpotifySource(null, "Nena")).toBeNull();
+    expect(buildSpotifySource("", "Nena")).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ const MOCK_CLAUDE_WORD = {
     },
   ],
   forms: "die Gelassenheit (die Gelassenheiten)",
+  tags: ["gefühle", "persönlichkeit"],
 };
 
 const MOCK_PRONUNCIATION = {
@@ -47,6 +48,7 @@ const MOCK_WOTD = {
   ],
   forms: "der Ohrwurm (die Ohrwürmer)",
   funFact: "Kombiniert Ohr + Wurm.",
+  tags: ["musik", "alltag"],
 };
 
 const MOCK_SPOTIFY_GERMAN = {
@@ -125,11 +127,34 @@ describe("POST /claude", () => {
     expect(data.word).toBe("die Gelassenheit");
     expect(data.type).toBe("Nomen");
     expect(data.sentences).toHaveLength(3);
+    expect(data.tags).toEqual(["gefühle", "persönlichkeit"]);
 
     // Verify Claude was called with the right API key
     const [apiUrl, apiOpts] = global.fetch.mock.calls[0];
     expect(apiUrl).toContain("anthropic.com");
     expect(apiOpts.headers["x-api-key"]).toBe("test-key-123");
+
+    // Verify the prompt asks for tags
+    const body = JSON.parse(apiOpts.body);
+    expect(body.messages[0].content).toContain('"tags"');
+  });
+
+  it("prompt requests tags field", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_CLAUDE_WORD) }],
+        }),
+    });
+
+    const req = makeReq("POST", "/claude", { word: "test" });
+    await workerDefault.fetch(req, mockEnv);
+
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    const prompt = body.messages[0].content;
+    expect(prompt).toContain("tags");
+    expect(prompt).toContain("topic");
   });
 
   it("forwards Claude API errors", async () => {
@@ -186,6 +211,25 @@ describe("GET /wotd", () => {
     expect(data.word).toBe("der Ohrwurm");
     expect(data.level).toBe("B2");
     expect(data).toHaveProperty("funFact");
+    expect(data.tags).toEqual(["musik", "alltag"]);
+  });
+
+  it("prompt requests tags field", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          content: [{ text: JSON.stringify(MOCK_WOTD) }],
+        }),
+    });
+
+    const req = new Request("https://test.com/wotd", { method: "GET" });
+    await workerDefault.fetch(req, mockEnv);
+
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+    const prompt = body.messages[0].content;
+    expect(prompt).toContain('"tags"');
+    expect(prompt).toContain("topic");
   });
 });
 

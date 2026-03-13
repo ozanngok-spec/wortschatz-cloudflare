@@ -3,7 +3,7 @@ import { ThemeCtx, DARK, LIGHT } from "./theme.js";
 import { useIsMobile } from "./hooks/useIsMobile.js";
 import { sbFetch, hashPin } from "./lib/supabase.js";
 import { fetchExampleSentences, fetchWordOfTheDay } from "./lib/api.js";
-import { TYPE_FILTERS, matchesTypeFilter, typeColor, levelColor } from "./lib/helpers.js";
+import { TYPE_FILTERS, matchesTypeFilter, typeColor, levelColor, parseAutoTags } from "./lib/helpers.js";
 import { SpeakBtn } from "./components/SpeakBtn.jsx";
 import { PronunciationPractice } from "./components/PronunciationPractice.jsx";
 import { WordOfTheDay } from "./components/WordOfTheDay.jsx";
@@ -62,7 +62,7 @@ export default function App() {
     setDbLoading(true);
     try {
       const data = await sbFetch(`/rest/v1/vocabulary?user_id=eq.${userId}&select=*&order=added_at.desc`);
-      setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, forms:w.forms||null, mastered:w.mastered, addedAt:w.added_at, tags:w.tags||[], quizCorrect:w.quiz_correct||0, quizTotal:w.quiz_total||0, quizLastReviewed:w.quiz_last_reviewed||null })));
+      setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, forms:w.forms||null, mastered:w.mastered, addedAt:w.added_at, tags:w.tags||[], quizCorrect:w.quiz_correct||0, quizTotal:w.quiz_total||0, quizLastReviewed:w.quiz_last_reviewed||null, source:w.source||null })));
     } catch(e) { console.error(e); }
     setDbLoading(false);
   }, [userId]);
@@ -119,18 +119,19 @@ export default function App() {
     setLoading(false);
   };
 
-  const saveWord = async (finalWord, ai) => {
-    const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false, tags:[] }) });
+  const saveWord = async (finalWord, ai, source = null) => {
+    const autoTags = parseAutoTags(ai.tags);
+    const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false, tags:autoTags, source:source||null }) });
     const inserted = Array.isArray(result) ? result[0] : result;
-    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at, tags:[], quizCorrect:0, quizTotal:0, quizLastReviewed:null }, ...prev]);
+    setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at, tags:autoTags, quizCorrect:0, quizTotal:0, quizLastReviewed:null, source:source||null }, ...prev]);
     setInput(""); setExpandedId(inserted.id); setSuggestion(null);
   };
 
-  const handleAddFromExternal = async (wordStr) => {
+  const handleAddFromExternal = async (wordStr, source = null) => {
     const ai = await fetchExampleSentences(wordStr);
     const finalWord = ai.word || wordStr;
     if (words.find(w => w.word.toLowerCase() === finalWord.toLowerCase())) return;
-    await saveWord(finalWord, ai);
+    await saveWord(finalWord, ai, source);
   };
 
   const acceptSuggestion = () => { if (suggestion) saveWord(suggestion.corrected, suggestion.ai); };
@@ -163,7 +164,7 @@ export default function App() {
   const handleAddWotd = async () => {
     if (!wotd || wotdAdding) return;
     setWotdAdding(true);
-    try { await saveWord(wotd.word, wotd); } catch(e) { console.error(e); }
+    try { await saveWord(wotd.word, wotd, "📅 Wort des Tages"); } catch(e) { console.error(e); }
     setWotdAdding(false);
   };
 
@@ -435,7 +436,10 @@ export default function App() {
                           </div>
                         </div>
                       )}
-                      <div style={{ fontSize:9, color:th.textDim, marginTop:14 }}>Hinzugefügt am {new Date(w.addedAt).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"})}</div>
+                      <div style={{ fontSize:9, color:th.textDim, marginTop:14, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                        <span>Hinzugefügt am {new Date(w.addedAt).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"})}</span>
+                        {w.source && <span style={{ color:th.textFaint, background:th.bgInset, borderRadius:4, padding:"1px 6px" }}>{w.source}</span>}
+                      </div>
                     </div>
                   )}
                 </div>

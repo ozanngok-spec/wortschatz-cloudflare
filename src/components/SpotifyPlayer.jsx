@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../theme.js";
 import { startAuth, getCurrentlyPlaying, isConnected, clearTokens } from "../lib/spotify.js";
 import { fetchLyrics } from "../lib/lyrics.js";
+import { buildSpotifySource } from "../lib/helpers.js";
 
 export function SpotifyPlayer({ userId, words, onSaveWord }) {
   const th = useTheme();
@@ -112,7 +113,8 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
   const handleAddVocab = async (word) => {
     if (addingWord || words.some(w => w.word.toLowerCase() === word.toLowerCase())) return;
     setAddingWord(word);
-    try { await onSaveWord(word); } catch (e) { console.error(e); }
+    const source = track ? buildSpotifySource(track.name, track.artist) : null;
+    try { await onSaveWord(word, source); } catch (e) { console.error(e); }
     setAddingWord(null);
   };
 

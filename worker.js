@@ -54,6 +54,7 @@ Return a JSON object with:
   - If Nomen: "der/die/das Word (plural)" e.g. "der Hund (die Hunde)"
   - If Verb: "3rd person present, past tense, perfect" e.g. "läuft, lief, ist gelaufen"
   - Otherwise: null
+- "tags": array of 1-2 lowercase topic/theme tags in German that categorise the word (e.g. ["reise"], ["essen","kultur"], ["arbeit"], ["gefühle"], ["natur"], ["alltag"]). Pick the most fitting topics — use short, common single words.
 
 Return ONLY the raw JSON object, no markdown, no code fences.`;
 
@@ -100,6 +101,7 @@ Return a JSON object with:
   - If Nomen: "der/die/das Word (plural)" e.g. "der Hund (die Hunde)"
   - If Verb: "3rd person present, past tense, perfect" e.g. "läuft, lief, ist gelaufen"
   - Otherwise: null
+- "tags": array of 1-2 lowercase topic/theme tags in German (e.g. ["kultur"], ["arbeit","alltag"])
 - "funFact": one interesting cultural or linguistic note about the word, in German (1 sentence)
 
 Return ONLY the raw JSON object, no markdown, no code fences.`;
