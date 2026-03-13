@@ -39,7 +39,7 @@ export default function App() {
   const [wotdLoading, setWotdLoading] = useState(true);
   const [wotdAdding, setWotdAdding] = useState(false);
   const [wotdDbId, setWotdDbId] = useState(null);
-  const [showAnalyzer, setShowAnalyzer] = useState(false);
+  const [activeTab, setActiveTab] = useState("woerter");
   const [showQuiz, setShowQuiz] = useState(false);
   const [tagFilter, setTagFilter] = useState(null);
 
@@ -90,7 +90,6 @@ export default function App() {
       .catch(e => { console.error("WOTD:", e); setWotdLoading(false); });
   }, [userId]);
 
-  const save = async (updated) => {}; // unused in deploy, Supabase handles persistence
   const toggleDark = () => {
     const next = !darkMode; setDarkMode(next);
     try { localStorage.setItem("wortschatz-darkmode", JSON.stringify(next)); } catch(e) {}
@@ -192,192 +191,259 @@ export default function App() {
 
   const allTags = [...new Set(words.flatMap(w => w.tags || []))].sort();
   const filteredWords = words.filter(w => matchesTypeFilter(w, filter) && (!tagFilter || (w.tags||[]).includes(tagFilter)));
-  const countFor = (key) => key==="all" ? words.length : words.filter(w => matchesTypeFilter(w, key)).length;
-
-  const popup = { background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:18, padding:"32px 36px", maxWidth:390, width:"92%", textAlign:"center", fontFamily:"'Inter',system-ui,sans-serif", boxShadow: th.isDark ? "0 24px 80px rgba(0,0,0,0.7)" : "0 24px 80px rgba(0,0,0,0.13)" };
-  const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 };
 
   if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Laden…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
 
+  const TABS = [
+    { key:"woerter",  label:"Wörter",  emoji:"📖" },
+    { key:"heute",    label:"Heute",   emoji:"📅" },
+    { key:"spotify",  label:"Spotify", emoji:"🎵" },
+    { key:"analyse",  label:"Analyse", emoji:"📝" },
+  ];
+
+  const popup = { background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:18, padding:"32px 36px", maxWidth:390, width:"92%", textAlign:"center", fontFamily:"'Inter',system-ui,sans-serif", boxShadow: th.isDark ? "0 24px 80px rgba(0,0,0,0.7)" : "0 24px 80px rgba(0,0,0,0.13)" };
+  const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 };
+  const pad = th.isMobile ? "0 16px" : "0 36px";
+
   return (
     <ThemeCtx.Provider value={th}>
-    <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s" }}>
+    <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s", paddingBottom: th.isMobile ? 72 : 0 }}>
 
-      {/* Header */}
-      <div style={{ borderBottom:`1px solid ${th.border}`, padding:th.isMobile?"14px 16px 12px":"18px 36px 14px", background: th.isDark ? "rgba(13,13,18,0.88)" : "rgba(244,244,251,0.88)", position:"sticky", top:0, zIndex:10, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)" }}>
-        <div style={{ maxWidth:740, margin:"0 auto" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-            <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
-              <h1 style={{ fontSize:20, fontWeight:600, color:th.text, margin:0, fontFamily:"'Lora',Georgia,serif" }}>Wortschatz</h1>
-              <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
-            </div>
-            <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            <button onClick={() => setShowQuiz(true)} style={{ background:th.bgCard, color:th.textMuted, border:`1px solid ${th.border}`, borderRadius:6, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "🧠" : "🧠 Quiz"}</button>
-            <button onClick={() => setShowAnalyzer(s => !s)} style={{ background:showAnalyzer?th.accent:th.bgCard, color:showAnalyzer?"#fff":th.textMuted, border:`1px solid ${showAnalyzer?th.accent:th.border}`, borderRadius:6, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "📝" : "📝 Analyse"}</button>
-            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"5px 10px", cursor:"pointer" }}>{th.isMobile ? "🔒" : "Sperren"}</button>
-            <button onClick={toggleDark} title={darkMode ? "Heller Modus" : "Dunkler Modus"}
-              style={{ background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:6, padding:"5px 10px", fontSize:13, cursor:"pointer", color:th.textMuted, display:"flex", alignItems:"center", gap:4, transition:"all 0.2s" }}>
-              {darkMode ? "☀️" : "🌙"} {!th.isMobile && <span style={{ fontSize:11, fontWeight:500 }}>{darkMode ? "Hell" : "Dunkel"}</span>}
-            </button>
-            </div>
+      {/* ── Header ── */}
+      <div style={{ borderBottom:`1px solid ${th.border}`, background: th.isDark ? "rgba(13,13,18,0.92)" : "rgba(244,244,251,0.92)", position:"sticky", top:0, zIndex:20, backdropFilter:"blur(18px)", WebkitBackdropFilter:"blur(18px)" }}>
+        <div style={{ maxWidth:740, margin:"0 auto", padding: th.isMobile ? "13px 16px" : "14px 36px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"baseline", gap:7 }}>
+            <span style={{ fontSize:19, fontWeight:700, color:th.text, fontFamily:"'Lora',Georgia,serif", letterSpacing:"-0.01em" }}>Wortschatz</span>
+            <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
           </div>
-          <div style={{ display:"flex", gap:8 }}>
-            <input value={input} onChange={e => { setInput(e.target.value); setError(""); setSuggestion(null); }}
-              onKeyDown={e => e.key==="Enter" && !loading && handleAdd()}
-              placeholder={th.isMobile ? "Wort eingeben…" : "Deutsches Wort oder Ausdruck eingeben…"}
-              style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:12, padding:"11px 16px", fontSize:th.isMobile?16:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.05)" }} />
-            <button onClick={isListening ? stopListening : startListening}
-              style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:12, padding:"11px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1 }}>
-              {isListening ? "⏹" : "🎤"}
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={toggleDark} title={darkMode?"Heller Modus":"Dunkler Modus"} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
+              {darkMode ? "☀️" : "🌙"}
             </button>
-            <button onClick={handleAdd} disabled={loading||!input.trim()}
-              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:12, padding:th.isMobile?"11px 14px":"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", boxShadow: loading ? "none" : `0 2px 12px ${th.accent}55` }}>
-              {loading ? "…" : th.isMobile ? "+" : "Hinzufügen"}
+            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"6px 12px", cursor:"pointer", letterSpacing:"0.02em" }}>
+              {th.isMobile ? "🔒" : "Sperren"}
             </button>
           </div>
-          {isListening && <p style={{ color:th.accent, fontSize:12, marginTop:8, marginBottom:0 }}>🎤 Höre zu… jetzt auf Deutsch sprechen</p>}
-          {error && <p style={{ color:th.red, fontSize:12, marginTop:8, marginBottom:0 }}>{error}</p>}
         </div>
+
+        {/* Desktop tab bar — inside header */}
+        {!th.isMobile && (
+          <div style={{ maxWidth:740, margin:"0 auto", padding:"0 36px", display:"flex", gap:0, borderTop:`1px solid ${th.border}` }}>
+            {TABS.map(({ key, label, emoji }) => {
+              const active = activeTab === key;
+              return (
+                <button key={key} onClick={() => setActiveTab(key)} style={{ background:"transparent", border:"none", borderBottom:`2px solid ${active ? th.accent : "transparent"}`, color: active ? th.accent : th.textMuted, fontSize:12, fontFamily:"inherit", fontWeight: active ? 600 : 400, padding:"11px 18px", cursor:"pointer", letterSpacing:"0.02em", transition:"all 0.15s", display:"flex", alignItems:"center", gap:6, marginBottom:-1 }}>
+                  <span style={{ fontSize:13 }}>{emoji}</span>{label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Stats + Filters */}
-      <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"10px 16px 0":"14px 36px 0" }}>
-        <div style={{ fontSize:11, color:th.textFaint, letterSpacing:"0.04em", marginBottom:12 }}>
-          {words.length} Wörter &nbsp;·&nbsp; <span style={{ color:th.green, fontWeight:600 }}>{words.filter(w=>w.mastered).length} gelernt</span> &nbsp;·&nbsp; {words.filter(w=>!w.mastered).length} offen
-        </div>
-        <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-          {TYPE_FILTERS.map(({ key, label }) => {
-            const count = countFor(key); const active = filter===key;
+      {/* ── Content ── */}
+      <div style={{ maxWidth:740, margin:"0 auto", padding: th.isMobile ? "20px 16px 0" : "28px 36px 0" }}>
+
+        {/* ── WÖRTER TAB ── */}
+        {activeTab === "woerter" && (<>
+
+          {/* Add word input */}
+          <div style={{ marginBottom:20 }}>
+            <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+              <input value={input} onChange={e => { setInput(e.target.value); setError(""); setSuggestion(null); }}
+                onKeyDown={e => e.key==="Enter" && !loading && handleAdd()}
+                placeholder="Deutsches Wort oder Ausdruck…"
+                style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:12, padding:"12px 16px", fontSize:th.isMobile?16:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }} />
+              <button onClick={isListening ? stopListening : startListening}
+                style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:12, padding:"12px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1, flexShrink:0 }}>
+                {isListening ? "⏹" : "🎤"}
+              </button>
+              <button onClick={handleAdd} disabled={loading||!input.trim()}
+                style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:12, padding:"12px 20px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", flexShrink:0, boxShadow: loading?"none":`0 2px 12px ${th.accent}44` }}>
+                {loading ? "…" : th.isMobile ? "+" : "Hinzufügen"}
+              </button>
+            </div>
+            {isListening && <p style={{ color:th.accent, fontSize:12, margin:0 }}>🎤 Höre zu… jetzt auf Deutsch sprechen</p>}
+            {error && <p style={{ color:th.red, fontSize:12, margin:0 }}>{error}</p>}
+          </div>
+
+          {/* Stats + Quiz row */}
+          <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
+            {/* Stats card */}
+            <div style={{ flex:1, minWidth:140, background:th.bgCard, border:`1.5px solid ${th.border}`, borderRadius:14, padding:"14px 18px", display:"flex", flexDirection:"column", gap:6, boxShadow: th.isDark?"none":"0 2px 12px rgba(0,0,0,0.05)" }}>
+              <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>Dein Fortschritt</div>
+              <div style={{ display:"flex", gap:16, alignItems:"baseline" }}>
+                <div>
+                  <span style={{ fontSize:22, fontWeight:700, color:th.text }}>{words.length}</span>
+                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>Wörter</span>
+                </div>
+                <div>
+                  <span style={{ fontSize:22, fontWeight:700, color:th.green }}>{words.filter(w=>w.mastered).length}</span>
+                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>gelernt</span>
+                </div>
+                <div>
+                  <span style={{ fontSize:22, fontWeight:700, color:th.accent }}>{words.filter(w=>!w.mastered).length}</span>
+                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>offen</span>
+                </div>
+              </div>
+              {words.length > 0 && (
+                <div style={{ height:4, background:th.bgInset, borderRadius:2, overflow:"hidden" }}>
+                  <div style={{ height:"100%", width:`${(words.filter(w=>w.mastered).length/words.length)*100}%`, background:th.green, borderRadius:2, transition:"width 0.4s" }} />
+                </div>
+              )}
+            </div>
+
+            {/* Quiz card */}
+            <button onClick={() => setShowQuiz(true)} style={{ flex:1, minWidth:140, background: th.isDark ? `linear-gradient(135deg, #1a1430 0%, #0f0d1a 100%)` : `linear-gradient(135deg, #eae8ff 0%, #f0eeff 100%)`, border:`1.5px solid ${th.accent}44`, borderRadius:14, padding:"14px 18px", cursor:"pointer", textAlign:"left", display:"flex", flexDirection:"column", gap:4, boxShadow:`0 2px 20px ${th.accent}22` }}>
+              <div style={{ fontSize:24 }}>🧠</div>
+              <div style={{ fontSize:13, fontWeight:600, color:th.accent }}>Quiz starten</div>
+              <div style={{ fontSize:11, color:th.textMuted }}>{words.filter(w=>!w.mastered).length} Wörter bereit</div>
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div style={{ marginBottom:14 }}>
+            <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:8 }}>
+              {TYPE_FILTERS.map(({ key, label }) => {
+                const count = key==="all" ? words.length : words.filter(w => matchesTypeFilter(w, key)).length;
+                const active = filter===key;
+                return (
+                  <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:999, padding:th.isMobile?"4px 10px":"5px 13px", fontSize:th.isMobile?10:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
+                    {label}
+                    <span style={{ fontSize:10, background:active?"rgba(255,255,255,0.2)":th.pillBg, borderRadius:6, padding:"0 5px" }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {allTags.length > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.08em", textTransform:"uppercase", flexShrink:0 }}>Thema</span>
+                <select value={tagFilter||""} onChange={e => setTagFilter(e.target.value||null)} style={{ background:tagFilter?th.accentBg:th.bgCard, color:tagFilter?th.accent:th.textMuted, border:`1.5px solid ${tagFilter?th.accent+"66":th.border}`, borderRadius:8, padding:"4px 28px 4px 10px", fontSize:11, fontFamily:"inherit", cursor:"pointer", outline:"none", appearance:"none", WebkitAppearance:"none", backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`, backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center" }}>
+                  <option value="">Alle Themen</option>
+                  {allTags.map(tag => <option key={tag} value={tag}>#{tag}</option>)}
+                </select>
+                {tagFilter && <button onClick={() => setTagFilter(null)} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:16, cursor:"pointer", lineHeight:1, padding:"0 2px" }}>×</button>}
+              </div>
+            )}
+          </div>
+
+          {/* Word list */}
+          <div style={{ paddingBottom: th.isMobile ? 16 : 48 }}>
+            {dbLoading && <div style={{ textAlign:"center", padding:"40px 0", color:th.textFaint, fontSize:13 }}>Lade deinen Wortschatz…</div>}
+            {!dbLoading && filteredWords.length===0 && (
+              <div style={{ textAlign:"center", padding:"60px 0", color:th.textDim }}>
+                <div style={{ fontSize:34, marginBottom:10 }}>📖</div>
+                <p style={{ fontSize:13 }}>{words.length===0 ? "Füge dein erstes Wort hinzu" : "Keine Wörter in dieser Kategorie"}</p>
+              </div>
+            )}
+            {!dbLoading && filteredWords.map(w => {
+              const tc = typeColor(w.type, th); const isRetrying = retryingId===w.id;
+              return (
+                <div key={w.id} style={{ background:th.bgCard, border:`1.5px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:14, marginBottom:6, overflow:"hidden", opacity:w.mastered?0.45:1, transition:"all 0.2s", boxShadow: th.isDark ? "0 1px 0 rgba(255,255,255,0.03)" : "0 2px 10px rgba(0,0,0,0.05)" }}>
+                  <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:th.isMobile?"12px 14px":"13px 18px", cursor:"pointer", gap:10 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:16, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:w.mastered?th.textFaint:th.text, textDecoration:w.mastered?"line-through":"none" }}>{w.word}</span>
+                        <SpeakBtn text={w.word} size={12} />
+                        <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:tc.bg, color:tc.text, letterSpacing:"0.06em", textTransform:"uppercase", fontWeight:600 }}>{w.type}</span>
+                        {w.level && (() => { const lc = levelColor(w.level, th); return <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:lc.bg, color:lc.text, letterSpacing:"0.08em", fontWeight:700 }}>{w.level}</span>; })()}
+                      </div>
+                      <div style={{ fontSize:13, color:th.textMuted, marginTop:3 }}>{w.translation}</div>
+                      {w.forms && <div style={{ fontSize:12, color:th.textWarm, marginTop:2, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.forms}</div>}
+                      {(w.tags||[]).length>0 && (
+                        <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:4 }}>
+                          {(w.tags||[]).map(tag => <span key={tag} onClick={e => { e.stopPropagation(); setTagFilter(tag===tagFilter?null:tag); }} style={{ fontSize:10, color:th.accent, background:th.accentBg, border:`1px solid ${th.accent}33`, borderRadius:20, padding:"1px 7px", cursor:"pointer" }}>#{tag}</span>)}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
+                      <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 8px", fontSize:10, fontFamily:"inherit", fontWeight:500, cursor:"pointer" }}>
+                        {w.mastered ? "✓" : th.isMobile ? "✓?" : "Gelernt?"}
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(w.id); }} onMouseEnter={e=>e.target.style.color=th.red} onMouseLeave={e=>e.target.style.color=th.textFaint} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:18, cursor:"pointer", padding:"2px 4px", lineHeight:1, transition:"color 0.15s" }}>×</button>
+                      <span style={{ color:th.textFaint, fontSize:11, display:"inline-block", transform:expandedId===w.id?"rotate(180deg)":"rotate(0)", transition:"transform 0.2s" }}>▾</span>
+                    </div>
+                  </div>
+                  {expandedId===w.id && (
+                    <div style={{ borderTop:`1px solid ${th.border}`, padding:th.isMobile?"12px 14px 16px":"16px 18px 20px" }}>
+                      <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.75, margin:"0 0 12px", fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.explanation}</p>
+                      <button onClick={() => handleRetry(w)} disabled={isRetrying} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:isRetrying?th.textFaint:th.textMuted, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"4px 12px", cursor:isRetrying?"not-allowed":"pointer", marginBottom:18 }}>
+                        {isRetrying ? "⟳ Aktualisiere…" : "⟳ Erneut generieren"}
+                      </button>
+                      <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>Beispielsätze</div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:13 }}>
+                        {(w.sentences||[]).map((s,i) => (
+                          <div key={i} style={{ borderLeft:`2px solid ${th.borderMid}`, paddingLeft:13 }}>
+                            <div style={{ fontSize:14, color:th.text, lineHeight:1.65, marginBottom:3, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                              <span>{s.german.split(new RegExp(`(${w.word})`,"gi")).map((part,j) => part.toLowerCase()===w.word.toLowerCase() ? <span key={j} style={{ color:th.accent }}>{part}</span> : part)}</span>
+                              <SpeakBtn text={s.german} size={12} />
+                            </div>
+                            <div style={{ fontSize:12, color:th.textMuted, lineHeight:1.5 }}>{s.english}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <PronunciationPractice word={w.word} />
+                      <TagManager tags={w.tags||[]} onUpdate={(newTags) => updateTags(w.id, newTags)} />
+                      <div style={{ fontSize:9, color:th.textDim, marginTop:14 }}>Hinzugefügt am {new Date(w.addedAt).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"})}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>)}
+
+        {/* ── HEUTE TAB ── */}
+        {activeTab === "heute" && (
+          <div style={{ paddingBottom:48 }}>
+            <div style={{ marginBottom:6 }}>
+              <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Wort des Tages</div>
+              <WordOfTheDay wotd={wotd} loading={wotdLoading} alreadyAdded={!!(wotd && words.some(w => w.word.toLowerCase()===wotd.word.toLowerCase()))} onAdd={handleAddWotd} adding={wotdAdding} onRefresh={handleRefreshWotd} />
+            </div>
+          </div>
+        )}
+
+        {/* ── SPOTIFY TAB ── */}
+        {activeTab === "spotify" && (
+          <div style={{ paddingBottom:48 }}>
+            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Spotify – Aktueller Song</div>
+            <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} />
+          </div>
+        )}
+
+        {/* ── ANALYSE TAB ── */}
+        {activeTab === "analyse" && (
+          <div style={{ paddingBottom:48 }}>
+            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Textanalyse</div>
+            <TextAnalyzer words={words} />
+          </div>
+        )}
+
+      </div>
+
+      {/* ── Mobile bottom nav ── */}
+      {th.isMobile && (
+        <div style={{ position:"fixed", bottom:0, left:0, right:0, zIndex:20, background: th.isDark ? "rgba(13,13,18,0.96)" : "rgba(244,244,251,0.96)", borderTop:`1px solid ${th.border}`, backdropFilter:"blur(18px)", WebkitBackdropFilter:"blur(18px)", display:"flex", padding:"8px 0 max(8px,env(safe-area-inset-bottom))" }}>
+          {TABS.map(({ key, label, emoji }) => {
+            const active = activeTab===key;
             return (
-              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:999, padding:th.isMobile?"4px 10px":"5px 14px", fontSize:th.isMobile?10:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
-                {label}
-                <span style={{ fontSize:10, fontWeight:500, background:active?"rgba(255,255,255,0.2)":th.pillBg, borderRadius:6, padding:"0 5px" }}>{count}</span>
+              <button key={key} onClick={() => setActiveTab(key)} style={{ flex:1, background:"transparent", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"4px 0" }}>
+                <span style={{ fontSize:20, lineHeight:1 }}>{emoji}</span>
+                <span style={{ fontSize:9, fontFamily:"inherit", fontWeight:active?600:400, color:active?th.accent:th.textFaint, letterSpacing:"0.04em" }}>{label}</span>
+                {active && <div style={{ width:18, height:2, background:th.accent, borderRadius:1, marginTop:1 }} />}
               </button>
             );
           })}
         </div>
-        {allTags.length > 0 && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
-            <span style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.08em", textTransform:"uppercase", flexShrink:0 }}>Thema</span>
-            <select
-              value={tagFilter || ""}
-              onChange={e => setTagFilter(e.target.value || null)}
-              style={{ background:tagFilter?th.accentBg:th.bgCard, color:tagFilter?th.accent:th.textMuted, border:`1.5px solid ${tagFilter?th.accent+"66":th.border}`, borderRadius:8, padding:"4px 28px 4px 10px", fontSize:11, fontFamily:"inherit", cursor:"pointer", outline:"none", appearance:"none", WebkitAppearance:"none", backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`, backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center" }}>
-              <option value="">Alle Themen</option>
-              {allTags.map(tag => (
-                <option key={tag} value={tag}>#{tag}</option>
-              ))}
-            </select>
-            {tagFilter && (
-              <button onClick={() => setTagFilter(null)} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:16, cursor:"pointer", lineHeight:1, padding:"0 2px" }} title="Filter zurücksetzen">×</button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Word of the Day */}
-      <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 0":"12px 36px 0" }}>
-        <WordOfTheDay
-          wotd={wotd}
-          loading={wotdLoading}
-          alreadyAdded={!!(wotd && words.some(w => w.word.toLowerCase() === wotd.word.toLowerCase()))}
-          onAdd={handleAddWotd}
-          adding={wotdAdding}
-          onRefresh={handleRefreshWotd}
-        />
-      </div>
-
-      {/* Spotify */}
-      {userId && (
-        <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 0":"12px 36px 0" }}>
-          <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} />
-        </div>
       )}
 
-      {/* Text Analyzer */}
-      {showAnalyzer && (
-        <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 0":"12px 36px 0" }}>
-          <TextAnalyzer words={words} />
-        </div>
-      )}
+      {/* ── Modals ── */}
 
-      {/* Word List */}
-      <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"8px 16px 48px":"12px 36px 60px" }}>
-        {dbLoading && <div style={{ textAlign:"center", padding:"40px 0", color:th.textFaint, fontSize:13 }}>Lade deinen Wortschatz…</div>}
-        {!dbLoading && filteredWords.length===0 && (
-          <div style={{ textAlign:"center", padding:"60px 0", color:th.textDim }}>
-            <div style={{ fontSize:34, marginBottom:10 }}>📖</div>
-            <p style={{ fontSize:13 }}>{words.length===0 ? "Füge dein erstes Wort hinzu" : "Keine Wörter in dieser Kategorie"}</p>
-          </div>
-        )}
-        {!dbLoading && filteredWords.map(w => {
-          const tc = typeColor(w.type, th); const isRetrying = retryingId===w.id;
-          return (
-            <div key={w.id} style={{ background:th.bgCard, border:`1.5px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:14, marginBottom:6, overflow:"hidden", opacity:w.mastered?0.4:1, transition:"all 0.2s", boxShadow: th.isDark ? "0 1px 0 rgba(255,255,255,0.03)" : "0 2px 12px rgba(0,0,0,0.06)" }}>
-              <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:th.isMobile?"12px 14px":"14px 18px", cursor:"pointer", gap:th.isMobile?8:12 }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                    <span style={{ fontSize:17, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:w.mastered?th.textFaint:th.text, textDecoration:w.mastered?"line-through":"none" }}>{w.word}</span>
-                    <SpeakBtn text={w.word} size={13} />
-                    <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:tc.bg, color:tc.text, letterSpacing:"0.06em", textTransform:"uppercase", fontWeight:600 }}>{w.type}</span>
-                    {w.level && (() => { const lc = levelColor(w.level, th); return <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:lc.bg, color:lc.text, letterSpacing:"0.08em", fontWeight:700 }}>{w.level}</span>; })()}
-                  </div>
-                  <div style={{ fontSize:13, color:th.textMuted, marginTop:3 }}>{w.translation}</div>
-                  {w.forms && <div style={{ fontSize:12, color:th.textWarm, marginTop:2, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.forms}</div>}
-                  {(w.tags||[]).length > 0 && (
-                    <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginTop:4 }}>
-                      {(w.tags||[]).map(tag => (
-                        <span key={tag} onClick={e => { e.stopPropagation(); setTagFilter(tag===tagFilter?null:tag); }} style={{ fontSize:10, color:th.accent, background:th.accentBg, border:`1px solid ${th.accent}33`, borderRadius:20, padding:"1px 7px", cursor:"pointer" }}>#{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
-                  <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 8px", fontSize:10, fontFamily:"inherit", fontWeight:500, letterSpacing:"0.04em", cursor:"pointer" }}>
-                    {w.mastered ? "✓" : th.isMobile ? "✓?" : "Gelernt?"}
-                  </button>
-                  <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(w.id); }}
-                    onMouseEnter={e=>e.target.style.color=th.red} onMouseLeave={e=>e.target.style.color=th.textFaint}
-                    style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:18, cursor:"pointer", padding:"2px 4px", lineHeight:1, transition:"color 0.15s" }}>×</button>
-                  <span style={{ color:th.textFaint, fontSize:11, display:"inline-block", transform:expandedId===w.id?"rotate(180deg)":"rotate(0)", transition:"transform 0.2s" }}>▾</span>
-                </div>
-              </div>
-              {expandedId===w.id && (
-                <div style={{ borderTop:`1px solid ${th.border}`, padding:th.isMobile?"12px 14px 16px":"16px 18px 20px" }}>
-                  <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.75, margin:"0 0 12px", fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.explanation}</p>
-                  <button onClick={() => handleRetry(w)} disabled={isRetrying} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:isRetrying?th.textFaint:th.textMuted, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"4px 12px", cursor:isRetrying?"not-allowed":"pointer", marginBottom:18 }}>
-                    {isRetrying ? "⟳ Aktualisiere…" : "⟳ Erneut generieren"}
-                  </button>
-                  <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>Beispielsätze</div>
-                  <div style={{ display:"flex", flexDirection:"column", gap:13 }}>
-                    {(w.sentences||[]).map((s,i) => (
-                      <div key={i} style={{ borderLeft:`2px solid ${th.borderMid}`, paddingLeft:13 }}>
-                        <div style={{ fontSize:14, color:th.text, lineHeight:1.65, marginBottom:3, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                          <span>
-                            {s.german.split(new RegExp(`(${w.word})`,"gi")).map((part,j) =>
-                              part.toLowerCase()===w.word.toLowerCase() ? <span key={j} style={{ color:th.accent }}>{part}</span> : part
-                            )}
-                          </span>
-                          <SpeakBtn text={s.german} size={12} />
-                        </div>
-                        <div style={{ fontSize:12, color:th.textMuted, lineHeight:1.5 }}>{s.english}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <PronunciationPractice word={w.word} />
-                  <TagManager tags={w.tags||[]} onUpdate={(newTags) => updateTags(w.id, newTags)} />
-                  <div style={{ fontSize:9, color:th.textDim, marginTop:14 }}>
-                    Hinzugefügt am {new Date(w.addedAt).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"})}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {/* Quiz */}
+      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} />}
 
-      {/* Bestätigung / Meintest du? */}
+      {/* Suggestion / Meintest du? */}
       {suggestion && (() => {
         const isCorrected = suggestion.corrected.toLowerCase() !== suggestion.original.toLowerCase();
         const tc = typeColor(suggestion.ai.type, th);
@@ -386,13 +452,9 @@ export default function App() {
           <div style={overlay} onClick={() => setSuggestion(null)}>
             <div onClick={e=>e.stopPropagation()} style={{ ...popup, maxWidth:400 }}>
               <div style={{ fontSize:20, marginBottom:8 }}>{isCorrected ? "✏️" : "📖"}</div>
-              <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:14, fontWeight:600 }}>
-                {isCorrected ? "Meintest du...?" : "Wort bestätigen"}
-              </p>
+              <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:14, fontWeight:600 }}>{isCorrected ? "Meintest du...?" : "Wort bestätigen"}</p>
               <p style={{ color:th.text, fontSize:22, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic", marginBottom:6 }}>{suggestion.corrected}</p>
-              {isCorrected && (
-                <p style={{ color:th.textFaint, fontSize:12, marginBottom:10 }}>statt <span style={{ textDecoration:"line-through", color:th.textDim }}>{suggestion.original}</span></p>
-              )}
+              {isCorrected && <p style={{ color:th.textFaint, fontSize:12, marginBottom:10 }}>statt <span style={{ textDecoration:"line-through", color:th.textDim }}>{suggestion.original}</span></p>}
               <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap", marginBottom:10 }}>
                 <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:tc.bg, color:tc.text, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase" }}>{suggestion.ai.type}</span>
                 {suggestion.ai.level && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:lc.bg, color:lc.text, fontWeight:700, letterSpacing:"0.08em" }}>{suggestion.ai.level}</span>}
@@ -411,9 +473,6 @@ export default function App() {
           </div>
         );
       })()}
-
-      {/* Quiz */}
-      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} />}
 
       {/* Löschen */}
       {deleteConfirmId && (

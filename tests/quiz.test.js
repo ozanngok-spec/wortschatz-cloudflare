@@ -124,9 +124,9 @@ describe("selectNextWord", () => {
 
   it("prefers unreviewed words", () => {
     const reviewMap = {
-      "1": { lastReviewed: Date.now(), correct: 1, total: 1 },
-      "2": { lastReviewed: Date.now(), correct: 1, total: 1 },
-      "3": { lastReviewed: Date.now(), correct: 1, total: 1 },
+      1: { lastReviewed: Date.now(), correct: 1, total: 1 },
+      2: { lastReviewed: Date.now(), correct: 1, total: 1 },
+      3: { lastReviewed: Date.now(), correct: 1, total: 1 },
       // word 4 has no review — should be picked
     };
     const word = selectNextWord(WORDS, reviewMap);
@@ -136,10 +136,10 @@ describe("selectNextWord", () => {
   it("prefers oldest-reviewed words when all reviewed", () => {
     const now = Date.now();
     const reviewMap = {
-      "1": { lastReviewed: now - 100000, correct: 1, total: 1 }, // oldest
-      "2": { lastReviewed: now - 50000, correct: 1, total: 1 },
-      "3": { lastReviewed: now - 10000, correct: 1, total: 1 },
-      "4": { lastReviewed: now, correct: 1, total: 1 }, // newest
+      1: { lastReviewed: now - 100000, correct: 1, total: 1 }, // oldest
+      2: { lastReviewed: now - 50000, correct: 1, total: 1 },
+      3: { lastReviewed: now - 10000, correct: 1, total: 1 },
+      4: { lastReviewed: now, correct: 1, total: 1 }, // newest
     };
     const word = selectNextWord(WORDS, reviewMap);
     expect(word.id).toBe("1");
@@ -225,7 +225,15 @@ describe("buildRound", () => {
   });
 
   it("returns null when not enough words for MC and no sentences", () => {
-    const tiny = [{ id: "x", word: "test", translation: "test", mastered: false, sentences: [] }];
+    const tiny = [
+      {
+        id: "x",
+        word: "test",
+        translation: "test",
+        mastered: false,
+        sentences: [],
+      },
+    ];
     expect(buildRound(tiny[0], tiny)).toBeNull();
   });
 
