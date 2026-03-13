@@ -12,7 +12,7 @@ export function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRef
     setExpanded(p => { const next = !p; localStorage.setItem("wortschatz-wotd-expanded", JSON.stringify(next)); return next; });
   };
   const today = new Date().toLocaleDateString("de-DE", { weekday:"long", day:"numeric", month:"long" });
-  const borderColor = th.isDark ? "#2E2850" : "#C4BBF5";
+  const borderColor = th.isDark ? th.accent + "38" : th.accent + "50";
 
   if (loading) return (
     <div style={{ background:th.accentBg, border:`1.5px solid ${borderColor}`, borderRadius:12, padding:"14px 18px", marginBottom:8 }}>
@@ -62,17 +62,17 @@ export function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRef
             ))}
           </div>
           {wotd.funFact && (
-            <div style={{ background:th.isDark?"rgba(124,117,240,0.1)":"rgba(67,56,202,0.06)", border:`1px solid ${borderColor}`, borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:12, color:th.isDark?"#A78BFA":"#5B21B6", lineHeight:1.65 }}>
+            <div style={{ background:th.accentBg, border:`1px solid ${borderColor}`, borderRadius:10, padding:"10px 14px", marginBottom:16, fontSize:12, color:th.textGold, lineHeight:1.65 }}>
               💡 {wotd.funFact}
             </div>
           )}
           <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
             <button onClick={onAdd} disabled={alreadyAdded || adding}
-              style={{ background:alreadyAdded||adding?"transparent":th.accent, color:alreadyAdded?th.textFaint:adding?th.textMuted:"#fff", border:alreadyAdded||adding?`1px solid ${borderColor}`:"none", borderRadius:8, padding:"8px 18px", fontSize:12, fontFamily:"inherit", fontWeight:600, cursor:alreadyAdded||adding?"default":"pointer", transition:"all 0.2s" }}>
+              style={{ background:alreadyAdded||adding?"transparent":th.accent, color:alreadyAdded?th.textFaint:adding?th.textMuted:"#fff", border:alreadyAdded||adding?`1px solid ${borderColor}`:"none", borderRadius:10, padding:"8px 18px", fontSize:12, fontFamily:"inherit", fontWeight:600, cursor:alreadyAdded||adding?"default":"pointer", transition:"all 0.2s", boxShadow:alreadyAdded||adding?"none":`0 2px 10px ${th.accent}44` }}>
               {alreadyAdded ? "✓ Bereits in deinem Wortschatz" : adding ? "Wird hinzugefügt…" : "+ Zum Wortschatz hinzufügen"}
             </button>
             <button onClick={onRefresh} disabled={loading}
-              style={{ background:"transparent", border:`1px solid ${borderColor}`, borderRadius:8, padding:"8px 14px", fontSize:12, fontFamily:"inherit", color:loading?th.textFaint:th.isDark?"#A78BFA":"#5B21B6", cursor:loading?"not-allowed":"pointer", display:"flex", alignItems:"center", gap:5, transition:"all 0.2s" }}>
+              style={{ background:"transparent", border:`1px solid ${borderColor}`, borderRadius:10, padding:"8px 14px", fontSize:12, fontFamily:"inherit", color:loading?th.textFaint:th.accent, cursor:loading?"not-allowed":"pointer", display:"flex", alignItems:"center", gap:5, transition:"all 0.2s" }}>
               <span style={{ display:"inline-block", animation:loading?"spin 1s linear infinite":"none" }}>⟳</span>
               {loading ? "Wird geladen…" : "Neues Wort"}
             </button>

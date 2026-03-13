@@ -182,8 +182,8 @@ export default function App() {
   const filteredWords = words.filter(w => matchesTypeFilter(w, filter) && (!tagFilter || (w.tags||[]).includes(tagFilter)));
   const countFor = (key) => key==="all" ? words.length : words.filter(w => matchesTypeFilter(w, key)).length;
 
-  const popup = { background:th.bgCard, border:`1px solid ${th.borderActive}`, borderRadius:10, padding:"28px 32px", maxWidth:360, width:"90%", textAlign:"center", fontFamily:"'Palatino Linotype',Palatino,serif" };
-  const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 };
+  const popup = { background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:18, padding:"32px 36px", maxWidth:390, width:"92%", textAlign:"center", fontFamily:"'Inter',system-ui,sans-serif", boxShadow: th.isDark ? "0 24px 80px rgba(0,0,0,0.7)" : "0 24px 80px rgba(0,0,0,0.13)" };
+  const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 };
 
   if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Laden…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
@@ -193,7 +193,7 @@ export default function App() {
     <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s" }}>
 
       {/* Header */}
-      <div style={{ borderBottom:`1px solid ${th.border}`, padding:th.isMobile?"14px 16px 12px":"18px 36px 14px", background:th.bg, position:"sticky", top:0, zIndex:10, backdropFilter:"blur(8px)" }}>
+      <div style={{ borderBottom:`1px solid ${th.border}`, padding:th.isMobile?"14px 16px 12px":"18px 36px 14px", background: th.isDark ? "rgba(13,13,18,0.88)" : "rgba(244,244,251,0.88)", position:"sticky", top:0, zIndex:10, backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)" }}>
         <div style={{ maxWidth:740, margin:"0 auto" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
             <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
@@ -213,13 +213,13 @@ export default function App() {
             <input value={input} onChange={e => { setInput(e.target.value); setError(""); setSuggestion(null); }}
               onKeyDown={e => e.key==="Enter" && !loading && handleAdd()}
               placeholder={th.isMobile ? "Wort eingeben…" : "Deutsches Wort oder Ausdruck eingeben…"}
-              style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:10, padding:"11px 16px", fontSize:th.isMobile?16:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)" }} />
+              style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:12, padding:"11px 16px", fontSize:th.isMobile?16:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.05)" }} />
             <button onClick={isListening ? stopListening : startListening}
-              style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:10, padding:"11px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1 }}>
+              style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:12, padding:"11px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1 }}>
               {isListening ? "⏹" : "🎤"}
             </button>
             <button onClick={handleAdd} disabled={loading||!input.trim()}
-              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:10, padding:th.isMobile?"11px 14px":"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", boxShadow: loading ? "none" : `0 2px 8px ${th.accent}44` }}>
+              style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:12, padding:th.isMobile?"11px 14px":"11px 22px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", boxShadow: loading ? "none" : `0 2px 12px ${th.accent}55` }}>
               {loading ? "…" : th.isMobile ? "+" : "Hinzufügen"}
             </button>
           </div>
@@ -231,13 +231,13 @@ export default function App() {
       {/* Stats + Filters */}
       <div style={{ maxWidth:740, margin:"0 auto", padding:th.isMobile?"10px 16px 0":"14px 36px 0" }}>
         <div style={{ fontSize:11, color:th.textFaint, letterSpacing:"0.04em", marginBottom:12 }}>
-          {words.length} Wörter &nbsp;·&nbsp; <span style={{ color:th.accent, fontWeight:500 }}>{words.filter(w=>w.mastered).length} gelernt</span> &nbsp;·&nbsp; {words.filter(w=>!w.mastered).length} in Bearbeitung
+          {words.length} Wörter &nbsp;·&nbsp; <span style={{ color:th.green, fontWeight:600 }}>{words.filter(w=>w.mastered).length} gelernt</span> &nbsp;·&nbsp; {words.filter(w=>!w.mastered).length} offen
         </div>
         <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
           {TYPE_FILTERS.map(({ key, label }) => {
             const count = countFor(key); const active = filter===key;
             return (
-              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:8, padding:th.isMobile?"4px 8px":"5px 12px", fontSize:th.isMobile?10:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
+              <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:999, padding:th.isMobile?"4px 10px":"5px 14px", fontSize:th.isMobile?10:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
                 {label}
                 <span style={{ fontSize:10, fontWeight:500, background:active?"rgba(255,255,255,0.2)":th.pillBg, borderRadius:6, padding:"0 5px" }}>{count}</span>
               </button>
@@ -245,11 +245,20 @@ export default function App() {
           })}
         </div>
         {allTags.length > 0 && (
-          <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginTop:8 }}>
-            <button onClick={() => setTagFilter(null)} style={{ background:tagFilter===null?th.accentBg:"transparent", color:tagFilter===null?th.accent:th.textFaint, border:`1px solid ${tagFilter===null?th.accent+"66":th.border}`, borderRadius:20, padding:"3px 10px", fontSize:10, fontFamily:"inherit", cursor:"pointer" }}>Alle Themen</button>
-            {allTags.map(tag => (
-              <button key={tag} onClick={() => setTagFilter(tagFilter===tag?null:tag)} style={{ background:tagFilter===tag?th.accentBg:"transparent", color:tagFilter===tag?th.accent:th.textMuted, border:`1px solid ${tagFilter===tag?th.accent+"66":th.border}`, borderRadius:20, padding:"3px 10px", fontSize:10, fontFamily:"inherit", cursor:"pointer" }}>#{tag}</button>
-            ))}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
+            <span style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.08em", textTransform:"uppercase", flexShrink:0 }}>Thema</span>
+            <select
+              value={tagFilter || ""}
+              onChange={e => setTagFilter(e.target.value || null)}
+              style={{ background:tagFilter?th.accentBg:th.bgCard, color:tagFilter?th.accent:th.textMuted, border:`1.5px solid ${tagFilter?th.accent+"66":th.border}`, borderRadius:8, padding:"4px 28px 4px 10px", fontSize:11, fontFamily:"inherit", cursor:"pointer", outline:"none", appearance:"none", WebkitAppearance:"none", backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`, backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center" }}>
+              <option value="">Alle Themen</option>
+              {allTags.map(tag => (
+                <option key={tag} value={tag}>#{tag}</option>
+              ))}
+            </select>
+            {tagFilter && (
+              <button onClick={() => setTagFilter(null)} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:16, cursor:"pointer", lineHeight:1, padding:"0 2px" }} title="Filter zurücksetzen">×</button>
+            )}
           </div>
         )}
       </div>
@@ -285,7 +294,7 @@ export default function App() {
         {!dbLoading && filteredWords.map(w => {
           const tc = typeColor(w.type, th); const isRetrying = retryingId===w.id;
           return (
-            <div key={w.id} style={{ background:th.bgCard, border:`1.5px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:12, marginBottom:8, overflow:"hidden", opacity:w.mastered?0.45:1, transition:"all 0.2s", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }}>
+            <div key={w.id} style={{ background:th.bgCard, border:`1.5px solid ${expandedId===w.id?th.borderActive:th.border}`, borderRadius:14, marginBottom:6, overflow:"hidden", opacity:w.mastered?0.4:1, transition:"all 0.2s", boxShadow: th.isDark ? "0 1px 0 rgba(255,255,255,0.03)" : "0 2px 12px rgba(0,0,0,0.06)" }}>
               <div onClick={() => setExpandedId(expandedId===w.id?null:w.id)} style={{ display:"flex", alignItems:"center", padding:th.isMobile?"12px 14px":"14px 18px", cursor:"pointer", gap:th.isMobile?8:12 }}>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
@@ -372,9 +381,9 @@ export default function App() {
               {suggestion.ai.forms && <p style={{ fontSize:12, color:th.textWarm, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic", marginBottom:14 }}>{suggestion.ai.forms}</p>}
               {!suggestion.ai.forms && <div style={{ marginBottom:14 }} />}
               <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
-                <button onClick={() => setSuggestion(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:6, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>Abbrechen</button>
-                {isCorrected && <button onClick={rejectSuggestion} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:6, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>So behalten</button>}
-                <button onClick={acceptSuggestion} style={{ background:th.accent, border:"none", borderRadius:6, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"9px 18px", cursor:"pointer" }}>
+                <button onClick={() => setSuggestion(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>Abbrechen</button>
+                {isCorrected && <button onClick={rejectSuggestion} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>So behalten</button>}
+                <button onClick={acceptSuggestion} style={{ background:th.accent, border:"none", borderRadius:10, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"9px 18px", cursor:"pointer", boxShadow:`0 2px 10px ${th.accent}55` }}>
                   {isCorrected ? "Ja, korrigieren" : "Hinzufügen"}
                 </button>
               </div>
@@ -391,8 +400,8 @@ export default function App() {
             <p style={{ color:th.text, fontSize:15, marginBottom:6 }}><strong>{words.find(w=>w.id===deleteConfirmId)?.word}</strong></p>
             <p style={{ color:th.textMuted, fontSize:13, lineHeight:1.6, marginBottom:24 }}>Möchtest du dieses Wort wirklich löschen? Das kann nicht rückgängig gemacht werden.</p>
             <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-              <button onClick={() => setDeleteConfirmId(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:6, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"8px 20px", cursor:"pointer" }}>Abbrechen</button>
-              <button onClick={() => handleDelete(deleteConfirmId)} style={{ background:th.red, border:"none", borderRadius:6, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"8px 20px", cursor:"pointer" }}>Löschen</button>
+              <button onClick={() => setDeleteConfirmId(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"8px 20px", cursor:"pointer" }}>Abbrechen</button>
+              <button onClick={() => handleDelete(deleteConfirmId)} style={{ background:th.red, border:"none", borderRadius:10, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"8px 20px", cursor:"pointer", boxShadow:`0 2px 10px ${th.red}55` }}>Löschen</button>
             </div>
           </div>
         </div>

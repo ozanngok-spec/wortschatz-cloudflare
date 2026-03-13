@@ -22,9 +22,9 @@ export function PinScreen({ onEnter, darkMode, toggleDark }) {
         <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.12em", textTransform:"uppercase", margin:"0 0 36px", fontWeight:500 }}>Dein persönlicher Wortschatz</p>
         <p style={{ color:th.textWarm, fontSize:14, lineHeight:1.8, marginBottom:28 }}>Gib deinen persönlichen PIN ein, um auf deinen Wortschatz zuzugreifen.<br/>Zum ersten Mal? Wähle einfach einen beliebigen PIN.</p>
         <input value={pin} onChange={e => { setPin(e.target.value); setError(""); }} onKeyDown={e => e.key==="Enter" && handle()} placeholder="PIN oder Passphrase…" type="password"
-          style={{ width:"100%", background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:10, padding:"13px 18px", fontSize:16, color:th.text, outline:"none", fontFamily:"inherit", marginBottom:10, textAlign:"center", letterSpacing:"0.12em", boxShadow: th.isDark ? "none" : "0 1px 3px rgba(0,0,0,0.06)" }} />
+          style={{ width:"100%", background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:14, padding:"13px 18px", fontSize:16, color:th.text, outline:"none", fontFamily:"inherit", marginBottom:10, textAlign:"center", letterSpacing:"0.12em", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(0,0,0,0.05)" }} />
         {error && <p style={{ color:th.red, fontSize:13, margin:"0 0 10px" }}>{error}</p>}
-        <button onClick={handle} style={{ width:"100%", background:th.accent, color:"#fff", border:"none", borderRadius:10, padding:"14px", fontSize:13, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.06em", cursor:"pointer", boxShadow:`0 2px 8px ${th.accent}44` }}>
+        <button onClick={handle} style={{ width:"100%", background:th.accent, color:"#fff", border:"none", borderRadius:14, padding:"14px", fontSize:13, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.06em", cursor:"pointer", boxShadow:`0 4px 20px ${th.accent}55` }}>
           Meinen Wortschatz öffnen →
         </button>
         <p style={{ color:th.textFaint, fontSize:11, marginTop:16, lineHeight:1.6 }}>Dein PIN wird verschlüsselt gespeichert — niemals im Klartext.</p>
