@@ -316,7 +316,12 @@ function PronunciationPractice({ word }) {
 // ── Word of the Day ──────────────────────────────────────────────────────────
 function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRefresh }) {
   const th = useTheme();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wortschatz-wotd-expanded") ?? "true"); } catch(e) { return true; }
+  });
+  const toggleExpanded = () => {
+    setExpanded(p => { const next = !p; localStorage.setItem("wortschatz-wotd-expanded", JSON.stringify(next)); return next; });
+  };
   const today = new Date().toLocaleDateString("de-DE", { weekday:"long", day:"numeric", month:"long" });
   const borderColor = th.isDark ? "#2E2850" : "#C4BBF5";
 
@@ -333,7 +338,7 @@ function WordOfTheDay({ wotd, loading, alreadyAdded, onAdd, adding, onRefresh })
 
   return (
     <div style={{ background:th.accentBg, border:`1.5px solid ${borderColor}`, borderRadius:12, marginBottom:8, overflow:"hidden", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(67,56,202,0.08)" }}>
-      <div onClick={() => setExpanded(p => !p)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:th.isMobile?"10px 14px":"13px 18px", cursor:"pointer" }}>
+      <div onClick={toggleExpanded} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:th.isMobile?"10px 14px":"13px 18px", cursor:"pointer" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:10, color:th.accent, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:700 }}>✦ Wort des Tages</span>
           <span style={{ fontSize:11, color:th.textFaint }}>{today}</span>
@@ -726,21 +731,40 @@ export default function App() {
         })}
       </div>
 
-      {/* Meintest du? */}
-      {suggestion && (
-        <div style={overlay} onClick={() => setSuggestion(null)}>
-          <div onClick={e=>e.stopPropagation()} style={popup}>
-            <div style={{ fontSize:22, marginBottom:12 }}>✏️</div>
-            <p style={{ color:th.textMuted, fontSize:13, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:16 }}>Meintest du...?</p>
-            <p style={{ color:th.text, fontSize:20, fontStyle:"italic", marginBottom:6 }}>{suggestion.corrected}</p>
-            <p style={{ color:th.textFaint, fontSize:12, marginBottom:24 }}>statt <span style={{ textDecoration:"line-through", color:th.textDim }}>{suggestion.original}</span></p>
-            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-              <button onClick={rejectSuggestion} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:6, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 18px", cursor:"pointer" }}>Nein, so behalten</button>
-              <button onClick={acceptSuggestion} style={{ background:th.accent, border:"none", borderRadius:6, color:"#0a0908", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"9px 18px", cursor:"pointer" }}>Ja, korrigieren</button>
+      {/* Bestätigung / Meintest du? */}
+      {suggestion && (() => {
+        const isCorrected = suggestion.corrected.toLowerCase() !== suggestion.original.toLowerCase();
+        const tc = typeColor(suggestion.ai.type, th);
+        const lc = levelColor(suggestion.ai.level, th);
+        return (
+          <div style={overlay} onClick={() => setSuggestion(null)}>
+            <div onClick={e=>e.stopPropagation()} style={{ ...popup, maxWidth:400 }}>
+              <div style={{ fontSize:20, marginBottom:8 }}>{isCorrected ? "✏️" : "📖"}</div>
+              <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:14, fontWeight:600 }}>
+                {isCorrected ? "Meintest du...?" : "Wort bestätigen"}
+              </p>
+              <p style={{ color:th.text, fontSize:22, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic", marginBottom:6 }}>{suggestion.corrected}</p>
+              {isCorrected && (
+                <p style={{ color:th.textFaint, fontSize:12, marginBottom:10 }}>statt <span style={{ textDecoration:"line-through", color:th.textDim }}>{suggestion.original}</span></p>
+              )}
+              <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap", marginBottom:10 }}>
+                <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:tc.bg, color:tc.text, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase" }}>{suggestion.ai.type}</span>
+                {suggestion.ai.level && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:lc.bg, color:lc.text, fontWeight:700, letterSpacing:"0.08em" }}>{suggestion.ai.level}</span>}
+              </div>
+              <p style={{ fontSize:13, color:th.textMuted, marginBottom:6 }}>{suggestion.ai.translation}</p>
+              {suggestion.ai.forms && <p style={{ fontSize:12, color:th.textWarm, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic", marginBottom:14 }}>{suggestion.ai.forms}</p>}
+              {!suggestion.ai.forms && <div style={{ marginBottom:14 }} />}
+              <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+                <button onClick={() => setSuggestion(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:6, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>Abbrechen</button>
+                {isCorrected && <button onClick={rejectSuggestion} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:6, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>So behalten</button>}
+                <button onClick={acceptSuggestion} style={{ background:th.accent, border:"none", borderRadius:6, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"9px 18px", cursor:"pointer" }}>
+                  {isCorrected ? "Ja, korrigieren" : "Hinzufügen"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Löschen */}
       {deleteConfirmId && (

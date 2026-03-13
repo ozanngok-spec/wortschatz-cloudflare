@@ -27,8 +27,18 @@ async function callClaude(apiKey, prompt, maxTokens = 1024) {
 
 async function handleClaude(req, env) {
   const { word } = await req.json();
-  const prompt = `You are a German vocabulary assistant. For the German word or phrase "${word}", return a JSON object with:
-- "word": the correct/canonical form of the word (fix spelling if needed, keep original if correct)
+  const prompt = `You are a strict German vocabulary assistant and native-level editor. The user entered: "${word}".
+
+Your first job is to determine the canonical correct form. Be STRICT — correct ANY of the following:
+- Spelling mistakes
+- Wrong or missing separable prefix in verbs or fixed expressions
+- Wrong or missing preposition
+- Wrong article or case
+- Incomplete or malformed idioms/Redewendungen — always return the full, standard native form
+- Non-standard word order in fixed expressions
+
+Return a JSON object with:
+- "word": the fully correct canonical form — if the user's input was wrong in ANY way (even subtly), return the corrected version here. Only keep the original if it is 100% correct.
 - "translation": English translation (concise)
 - "type": one of "Nomen", "Verb", "Adjektiv", "Adverb", "Ausdruck"
 - "level": CEFR level, one of "A1","A2","B1","B2","C1","C2"
