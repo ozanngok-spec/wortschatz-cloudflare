@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "vitest run && vite build && wrangler deploy"
+    "deploy": "vitest run && vite build && npx wrangler deploy"
   },
   "dependencies": {
     "react": "^18.2.0",
