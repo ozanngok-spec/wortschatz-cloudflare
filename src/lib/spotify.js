@@ -181,7 +181,7 @@ async function spotifyFetch(userId, endpoint) {
 // ── Get currently playing track ───────────────────────────────────────────────
 export async function getCurrentlyPlaying(userId) {
   const data = await spotifyFetch(userId, "/me/player/currently-playing");
-  if (!data || !data.item) return null;
+  if (!data || !data.item || data.currently_playing_type === "episode") return null;
   const track = data.item;
   return {
     id: track.id,
