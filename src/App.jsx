@@ -315,17 +315,17 @@ export default function App() {
             <span style={{ fontSize:19, fontWeight:700, color:th.text, fontFamily:"'Lora',Georgia,serif", letterSpacing:"-0.01em" }}>Wortschatz</span>
             <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
           </div>
-          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            <button onClick={() => setShowLangPicker(true)} title="Change language" style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
+          <div style={{ display:"flex", gap: th.isMobile ? 4 : 6, alignItems:"center" }}>
+            <button onClick={() => setShowLangPicker(true)} title="Change language" style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
               {langConfig.flag}
             </button>
-            <button onClick={toggleImmersive} title={immersive ? "Switch UI to English" : "Switch UI to target language"} style={{ background: immersive ? th.accentBg : "transparent", border:`1px solid ${immersive ? th.accent : th.border}`, borderRadius:8, padding:"6px 10px", fontSize:11, cursor:"pointer", color: immersive ? th.accent : th.textMuted, fontFamily:"inherit", fontWeight: immersive ? 600 : 400, lineHeight:1 }}>
+            <button onClick={toggleImmersive} title={immersive ? "Switch UI to English" : "Switch UI to target language"} style={{ background: immersive ? th.accentBg : "transparent", border:`1px solid ${immersive ? th.accent : th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:11, cursor:"pointer", color: immersive ? th.accent : th.textMuted, fontFamily:"inherit", fontWeight: immersive ? 600 : 400, lineHeight:1 }}>
               Aa
             </button>
-            <button onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
+            <button onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
               {darkMode ? "☀️" : "🌙"}
             </button>
-            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"6px 12px", cursor:"pointer", letterSpacing:"0.02em" }}>
+            <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding: th.isMobile ? "5px 8px" : "6px 12px", cursor:"pointer", letterSpacing:"0.02em" }}>
               {th.isMobile ? "🔒" : "Lock"}
             </button>
           </div>

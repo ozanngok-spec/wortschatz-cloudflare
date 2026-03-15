@@ -40,7 +40,7 @@ export function LanguagePicker({ current, currentLevel, onChange, onClose }) {
       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
     }} onClick={onClose}>
       <div style={{
-        background: th.card, borderRadius: 16, padding: 24, width: 320, maxHeight: "80vh",
+        background: th.card, borderRadius: 16, padding: 24, width: "min(320px, calc(100vw - 32px))", maxHeight: "80vh",
         overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
       }} onClick={e => e.stopPropagation()}>
 
