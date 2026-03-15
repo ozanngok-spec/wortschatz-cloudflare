@@ -72,7 +72,14 @@ Return a JSON object with:
 - "word": the fully correct canonical form — if the user's input was wrong in ANY way (even subtly), return the corrected version here. Only keep the original if it is 100% correct.
 - "translation": English translation (concise)
 - "type": one of "${types}"
-- "level": CEFR level, one of "A1","A2","B1","B2","C1","C2"
+- "level": CEFR level based on word frequency and register — NOT the complexity of the concept it expresses:
+  • A1: ~500 most essential words. Immediate survival/daily use: greetings, numbers, family, basic verbs (eat/go/be/have), colors, days, body parts.
+  • A2: Common everyday words (~500–2000 frequency). Simple familiar topics: shopping, travel basics, feelings, routines, food, home.
+  • B1: Frequent but requiring deliberate study (~2000–5000). Work, events, opinions, some abstract ideas. A tourist wouldn't know it but a 1-year learner would.
+  • B2: Less frequent, nuanced or register-sensitive (~5000–10000). Abstract topics, idiomatic usage, multiple meanings, collocations.
+  • C1: Low-frequency, sophisticated — idiomatic, literary, formal, or domain-specific. Near-native range needed to know it naturally.
+  • C2: Rare, archaic, highly specialized, or extremely subtle in nuance. Even educated native speakers use it infrequently.
+  Base the level on how often a native speaker uses this exact word/expression, not on how hard the idea is.
 - "explanation": a brief explanation in ${lang.name} pitched at ${targetLevel} level (1-2 sentences — use simpler language for A1/A2, richer detail for C1/C2)
 - "sentences": array of exactly 3 objects, each with "target" (example sentence in ${lang.name} using the word, complexity appropriate for ${targetLevel}) and "english" (translation)
 - "forms": grammatical forms string:
@@ -123,7 +130,14 @@ Return a JSON object with:
 - "word": the word or expression
 - "translation": English translation (concise)
 - "type": one of "${types}"
-- "level": CEFR level, one of "A1","A2","B1","B2","C1","C2"
+- "level": CEFR level based on word frequency and register — NOT the complexity of the concept it expresses:
+  • A1: ~500 most essential words. Immediate survival/daily use: greetings, numbers, family, basic verbs (eat/go/be/have), colors, days, body parts.
+  • A2: Common everyday words (~500–2000 frequency). Simple familiar topics: shopping, travel basics, feelings, routines, food, home.
+  • B1: Frequent but requiring deliberate study (~2000–5000). Work, events, opinions, some abstract ideas. A tourist wouldn't know it but a 1-year learner would.
+  • B2: Less frequent, nuanced or register-sensitive (~5000–10000). Abstract topics, idiomatic usage, multiple meanings, collocations.
+  • C1: Low-frequency, sophisticated — idiomatic, literary, formal, or domain-specific. Near-native range needed to know it naturally.
+  • C2: Rare, archaic, highly specialized, or extremely subtle in nuance. Even educated native speakers use it infrequently.
+  Base the level on how often a native speaker uses this exact word/expression, not on how hard the idea is.
 - "explanation": a brief explanation in ${lang.name} pitched at ${targetLevel} level (1-2 sentences)
 - "sentences": array of exactly 2 objects, each with "target" (example sentence in ${lang.name}, complexity appropriate for ${targetLevel}) and "english" (translation)
 - "forms": grammatical forms:
