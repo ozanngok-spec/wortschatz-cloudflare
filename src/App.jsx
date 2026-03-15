@@ -192,6 +192,12 @@ export default function App() {
     await saveWord(finalWord, ai, source);
   };
 
+  const handleAddWithData = async (wordStr, ai, source = null) => {
+    const finalWord = ai.word || wordStr;
+    if (words.find(w => w.word.toLowerCase() === finalWord.toLowerCase())) return;
+    await saveWord(finalWord, ai, source);
+  };
+
   const acceptSuggestion = () => { if (suggestion) saveWord(suggestion.corrected, suggestion.ai); };
   const rejectSuggestion = () => { if (suggestion) saveWord(suggestion.original, suggestion.ai); };
 
@@ -559,7 +565,7 @@ export default function App() {
         {activeTab === "spotify" && (
           <div style={{ paddingBottom:48 }}>
             <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Spotify – Now Playing</div>
-            <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} targetLang={targetLang} uiLang={uiLang} />
+            <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} onSaveWordData={handleAddWithData} targetLang={targetLang} targetLevel={targetLevel} uiLang={uiLang} />
           </div>
         )}
 
