@@ -15,7 +15,7 @@ import { SpotifyPlayer } from "./components/SpotifyPlayer.jsx";
 import { QuizMode } from "./components/QuizMode.jsx";
 import { handleCallback as handleSpotifyCallback } from "./lib/spotify.js";
 import { getLanguage } from "./lib/languages.js";
-import { LanguagePicker } from "./components/LanguagePicker.jsx";
+import { LanguageDashboard } from "./components/LanguageDashboard.jsx";
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -52,7 +52,7 @@ export default function App() {
     const lang = localStorage.getItem("wortschatz-lang") || "de";
     return localStorage.getItem(`wortschatz-level-${lang}`) || "B1";
   });
-  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [immersive, setImmersive] = useState(() => {
     try { return JSON.parse(localStorage.getItem("wortschatz-immersive") ?? "false"); } catch(e) { return false; }
   });
@@ -71,6 +71,7 @@ export default function App() {
     const hashed = await hashPin(pin);
     sessionStorage.setItem("wortschatz-uid", hashed);
     setUserId(hashed);
+    setShowDashboard(true);
   };
   const handleLogout = () => { sessionStorage.removeItem("wortschatz-uid"); setUserId(null); setWords([]); };
 
@@ -90,7 +91,12 @@ export default function App() {
     setTargetLang(code);
     setTargetLevel(level);
     savePreferences(code, level);
-    setWords([]);
+    if (code !== targetLang) setWords([]);
+  };
+
+  const handleDashboardContinue = (code, level) => {
+    handleLangChange(code, level);
+    setShowDashboard(false);
   };
 
   const loadWords = useCallback(async () => {
@@ -284,6 +290,7 @@ export default function App() {
 
   if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Loading…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
+  if (showDashboard) return <LanguageDashboard currentLang={targetLang} currentLevel={targetLevel} onContinue={handleDashboardContinue} darkMode={darkMode} toggleDark={toggleDark} />;
 
   const TABS = [
     { key:"woerter",  label: uiLang?.tabs.vocabulary ?? "Vocabulary", emoji:"📖" },
@@ -305,7 +312,7 @@ export default function App() {
 
   return (
     <ThemeCtx.Provider value={th}>
-    {showLangPicker && <LanguagePicker current={targetLang} currentLevel={targetLevel} onChange={handleLangChange} onClose={() => setShowLangPicker(false)} />}
+    {showDashboard && <LanguageDashboard currentLang={targetLang} currentLevel={targetLevel} onContinue={handleDashboardContinue} darkMode={darkMode} toggleDark={toggleDark} asOverlay onClose={() => setShowDashboard(false)} />}
     <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s", paddingBottom: th.isMobile ? 72 : 0 }}>
 
       {/* ── Header ── */}
@@ -316,7 +323,7 @@ export default function App() {
             <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
           </div>
           <div style={{ display:"flex", gap: th.isMobile ? 4 : 6, alignItems:"center" }}>
-            <button onClick={() => setShowLangPicker(true)} title="Change language" style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
+            <button onClick={() => setShowDashboard(true)} title="Change language" style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
               {langConfig.flag}
             </button>
             <button onClick={toggleImmersive} title={immersive ? "Switch UI to English" : "Switch UI to target language"} style={{ background: immersive ? th.accentBg : "transparent", border:`1px solid ${immersive ? th.accent : th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:11, cursor:"pointer", color: immersive ? th.accent : th.textMuted, fontFamily:"inherit", fontWeight: immersive ? 600 : 400, lineHeight:1 }}>
