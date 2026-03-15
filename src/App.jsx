@@ -16,6 +16,7 @@ import { QuizMode } from "./components/QuizMode.jsx";
 import { handleCallback as handleSpotifyCallback } from "./lib/spotify.js";
 import { getLanguage } from "./lib/languages.js";
 import { LanguageDashboard } from "./components/LanguageDashboard.jsx";
+import { TravelCompanion } from "./components/TravelCompanion.jsx";
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -303,6 +304,7 @@ export default function App() {
     { key:"heute",    label: uiLang?.tabs.today      ?? "Today",      emoji:"📅" },
     { key:"spotify",  label: uiLang?.tabs.spotify    ?? "Spotify",    emoji:"🎵" },
     { key:"analyse",  label: uiLang?.tabs.analyse    ?? "Analyse",    emoji:"📝" },
+    { key:"travel",   label: "Travel",                                emoji:"✈️" },
   ];
   const filterLabel = (key, englishLabel) => {
     if (!uiLang) return englishLabel;
@@ -576,6 +578,13 @@ export default function App() {
             <YouTubeAnalyzer words={words} onSaveWord={handleAddFromExternal} targetLang={targetLang} uiLang={uiLang} />
             <div style={{ marginTop:6 }} />
             <TextAnalyzer words={words} uiLang={uiLang} />
+          </div>
+        )}
+
+        {/* ── TRAVEL TAB ── */}
+        {activeTab === "travel" && (
+          <div style={{ paddingBottom:48 }}>
+            <TravelCompanion targetLang={targetLang} darkMode={darkMode} />
           </div>
         )}
 

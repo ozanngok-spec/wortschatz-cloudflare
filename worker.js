@@ -305,6 +305,150 @@ Do NOT include any explanation, commentary, markdown, or code fences — just th
   });
 }
 
+async function handleTravelPhrases(req, env) {
+  const { category, targetLanguage = "de" } = await req.json();
+  const lang = getLang(targetLanguage);
+
+  const categoryDescriptions = {
+    airport:     "airport and flights (check-in, boarding, immigration, customs, lost luggage)",
+    hotel:       "hotel (check-in, checkout, room issues, requesting amenities, complaints)",
+    restaurant:  "restaurant and cafes (ordering, menu questions, dietary needs, paying the bill)",
+    transport:   "transport (taxi, rideshare, bus, metro, train, asking about fare and stops)",
+    emergency:   "emergency situations (medical help, lost wallet or phone, police, urgent help)",
+    shopping:    "shopping (asking prices, trying sizes, payment methods, refunds, market haggling)",
+    directions:  "asking for and understanding directions, finding your way around",
+    social:      "social situations (greetings, meeting people, small talk, polite phrases)",
+  };
+
+  const desc = categoryDescriptions[category] || category;
+
+  const prompt = `Generate 8 essential travel phrases a tourist would need for: ${desc}
+
+Target language: ${lang.name}
+
+Return ONLY a raw JSON object with no markdown:
+{
+  "phrases": [
+    {
+      "target": "phrase in ${lang.name} (natural, what a native would actually say)",
+      "romanization": "romanization if non-Latin script, otherwise null",
+      "english": "English meaning",
+      "note": "very short usage note or null"
+    }
+  ]
+}`;
+
+  const text = await callClaude(env.ANTHROPIC_API_KEY, prompt, 700);
+  const json = JSON.parse(stripFences(text));
+  return new Response(JSON.stringify(json), {
+    headers: { "Content-Type": "application/json", ...CORS },
+  });
+}
+
+async function handleTravelSituation(req, env) {
+  const { situation, targetLanguage = "de" } = await req.json();
+  const lang = getLang(targetLanguage);
+
+  const prompt = `You are a travel language assistant. A traveler describes their situation:
+"${situation}"
+
+They need to communicate in ${lang.name}. Return ONLY a raw JSON object with no markdown:
+{
+  "phrases": [
+    {
+      "target": "key phrase to say in ${lang.name}",
+      "romanization": "romanization if non-Latin script, otherwise null",
+      "english": "English translation",
+      "when": "when to use this (1 short phrase)"
+    }
+  ],
+  "tips": ["practical tip"],
+  "responses": [
+    {
+      "target": "typical response you might hear in ${lang.name}",
+      "english": "what it means"
+    }
+  ]
+}
+Include 3-5 phrases, 1-2 tips, 2-3 typical responses a local might give.`;
+
+  const text = await callClaude(env.ANTHROPIC_API_KEY, prompt, 800);
+  const json = JSON.parse(stripFences(text));
+  return new Response(JSON.stringify(json), {
+    headers: { "Content-Type": "application/json", ...CORS },
+  });
+}
+
+async function handleTravelRoleplay(req, env) {
+  const { scenario, messages = [], targetLanguage = "de", isOpening = false } = await req.json();
+  const lang = getLang(targetLanguage);
+
+  const historyText = messages.length > 0
+    ? messages.map(m => `${m.role === "user" ? "Traveler" : "Local"}: ${m.content}`).join("\n")
+    : "";
+
+  const prompt = `You are playing a native ${lang.name} speaker in this travel scenario: "${scenario}".
+Respond naturally and concisely as a local would.${isOpening ? " Start the conversation with a natural opening line (e.g. greeting the traveler)." : ""}
+
+${historyText ? `Conversation so far:\n${historyText}\n\nNow respond as the Local.` : "Begin the conversation."}
+
+Return ONLY a raw JSON object with no markdown:
+{
+  "reply": "your response in ${lang.name}",
+  "romanization": "romanization if non-Latin script, otherwise null",
+  "translation": "English translation of your reply",
+  "feedback": {
+    "score": 0-100 rating of the traveler's last message (null if no traveler message yet),
+    "correction": "corrected version of traveler's last message if there was an error, otherwise null",
+    "tip": "one helpful grammar or vocabulary tip, or null"
+  }
+}`;
+
+  const text = await callClaude(env.ANTHROPIC_API_KEY, prompt, 500);
+  const json = JSON.parse(stripFences(text));
+  return new Response(JSON.stringify(json), {
+    headers: { "Content-Type": "application/json", ...CORS },
+  });
+}
+
+async function handleTravelTts(req, env) {
+  const { text } = await req.json();
+
+  if (!env.ELEVENLABS_API_KEY) {
+    return new Response(JSON.stringify({ error: "ElevenLabs API key not configured" }), {
+      status: 503, headers: { "Content-Type": "application/json", ...CORS },
+    });
+  }
+
+  // Charlotte — natural multilingual voice (requires Starter plan+)
+  const voiceId = "XB0fDUnXU5powFXDhCwa";
+
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: "POST",
+    headers: {
+      "xi-api-key": env.ELEVENLABS_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text,
+      model_id: "eleven_multilingual_v2",
+      voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    return new Response(JSON.stringify({ error: "TTS failed", detail: err }), {
+      status: 502, headers: { "Content-Type": "application/json", ...CORS },
+    });
+  }
+
+  const audio = await res.arrayBuffer();
+  return new Response(audio, {
+    headers: { "Content-Type": "audio/mpeg", "Access-Control-Allow-Origin": "*" },
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -331,6 +475,22 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/youtube-vocab") {
       return handleYoutubeVocab(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/travel-phrases") {
+      return handleTravelPhrases(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/travel-situation") {
+      return handleTravelSituation(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/travel-roleplay") {
+      return handleTravelRoleplay(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/travel-tts") {
+      return handleTravelTts(request, env);
     }
 
     return env.ASSETS.fetch(request);
