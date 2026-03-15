@@ -5,17 +5,19 @@ import { selectNextWord, buildRound } from "../lib/quiz.js";
 import { matchesTypeFilter } from "../lib/helpers.js";
 
 const QUIZ_TYPES = [
-  { key: "all", label: "Alle", emoji: "🎲" },
-  { key: "nomen", label: "Nomen", emoji: "📦" },
-  { key: "verb", label: "Verben", emoji: "🏃" },
-  { key: "ausdruck", label: "Ausdrücke", emoji: "💬" },
-  { key: "adjektiv", label: "Adjektive", emoji: "🎨" },
-  { key: "adverb", label: "Adverbien", emoji: "⚡" },
+  { key: "all", label: "All", emoji: "🎲" },
+  { key: "nomen", label: "Nouns", emoji: "📦" },
+  { key: "verb", label: "Verbs", emoji: "🏃" },
+  { key: "ausdruck", label: "Expressions", emoji: "💬" },
+  { key: "adjektiv", label: "Adjectives", emoji: "🎨" },
+  { key: "adverb", label: "Adverbs", emoji: "⚡" },
 ];
 
 const TOTAL_ROUNDS = 10;
 
-export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp }) {
+const FILTER_KEY_MAP = { all:"all", nomen:"nouns", verb:"verbs", ausdruck:"expressions", adjektiv:"adjectives", adverb:"adverbs" };
+
+export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp, langConfig, uiLang }) {
   const th = useTheme();
   const [quizFilter, setQuizFilter] = useState(null); // null = setup screen
   const [reviewMap, setReviewMap] = useState(() => reviewMapProp || {});
@@ -163,8 +165,8 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
           <button onClick={onClose} style={{ position:"absolute", top:14, right:16, background:"transparent", border:"none", color:th.textFaint, fontSize:20, cursor:"pointer", lineHeight:1 }}>×</button>
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>🧠</div>
-            <div style={{ fontSize: 20, fontWeight: 600, color: th.text, fontFamily: "'Lora',Georgia,serif" }}>Quiz starten</div>
-            <div style={{ fontSize: 12, color: th.textMuted, marginTop: 4 }}>Welche Wörter möchtest du üben?</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: th.text, fontFamily: "'Lora',Georgia,serif" }}>Start quiz</div>
+            <div style={{ fontSize: 12, color: th.textMuted, marginTop: 4 }}>Which words do you want to practice?</div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
             {QUIZ_TYPES.map(({ key, label, emoji }) => {
@@ -189,13 +191,13 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = disabled ? th.border : th.borderMid; e.currentTarget.style.background = th.bgInset; }}
                 >
                   <div style={{ fontSize: 20, marginBottom: 4 }}>{emoji}</div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: disabled ? th.textFaint : th.text }}>{label}</div>
-                  <div style={{ fontSize: 10, color: th.textFaint, marginTop: 2 }}>{count} Wörter</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: disabled ? th.textFaint : th.text }}>{uiLang?.filters[FILTER_KEY_MAP[key]] ?? label}</div>
+                  <div style={{ fontSize: 10, color: th.textFaint, marginTop: 2 }}>{count} words</div>
                 </button>
               );
             })}
           </div>
-          <div style={{ fontSize: 10, color: th.textFaint, textAlign: "center" }}>Mindestens 4 Wörter pro Kategorie nötig</div>
+          <div style={{ fontSize: 10, color: th.textFaint, textAlign: "center" }}>At least 4 words per category needed</div>
         </div>
       </div>
     );
@@ -228,11 +230,11 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                 marginBottom: 20,
               }}
             >
-              {pct}% richtig
+              {pct}% correct
               {bestStreak > 1 && (
                 <span>
                   {" "}
-                  · 🔥 Beste Serie: {bestStreak}
+                  · 🔥 Best streak: {bestStreak}
                 </span>
               )}
             </div>
@@ -290,7 +292,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                   cursor: "pointer",
                 }}
               >
-                Schließen
+                Close
               </button>
               <button
                 onClick={() => {
@@ -316,7 +318,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                   boxShadow: `0 2px 10px ${th.accent}55`,
                 }}
               >
-                Nochmal spielen
+                Play again
               </button>
             </div>
           </div>
@@ -339,8 +341,8 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
             }}
           >
             {eligible.length < 4
-              ? "Du brauchst mindestens 4 nicht-gelernte Wörter für das Quiz."
-              : "Lade…"}
+              ? "You need at least 4 unmastered words to start the quiz."
+              : "Loading…"}
           </div>
           {eligible.length < 4 && (
             <div style={{ textAlign: "center" }}>
@@ -358,7 +360,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                   cursor: "pointer",
                 }}
               >
-                Zurück
+                Back
               </button>
             </div>
           )}
@@ -429,7 +431,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
               fontWeight: 500,
             }}
           >
-            Frage {roundNum + 1}/{TOTAL_ROUNDS}
+            Question {roundNum + 1}/{TOTAL_ROUNDS}
           </span>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {streak >= 2 && (
@@ -466,9 +468,9 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
             marginBottom: 10,
           }}
         >
-          {round.type === "de-en" && "Deutsch → Englisch"}
-          {round.type === "en-de" && "Englisch → Deutsch"}
-          {round.type === "fill" && "Lückentext"}
+          {round.type === "de-en" && `${langConfig?.name ?? "Target"} → English`}
+          {round.type === "en-de" && `English → ${langConfig?.name ?? "Target"}`}
+          {round.type === "fill" && "Fill in the blank"}
         </div>
 
         {/* Prompt */}
@@ -487,7 +489,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
           }}
         >
           <span>{round.prompt}</span>
-          {round.type === "de-en" && <SpeakBtn text={round.prompt} size={16} />}
+          {round.type === "de-en" && <SpeakBtn text={round.prompt} size={16} lang={langConfig?.speechLang} />}
         </div>
 
         {/* Hint for fill */}
@@ -571,7 +573,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                 onChange={(e) => setFillInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleFillSubmit()}
                 disabled={fillChecked}
-                placeholder="Wort eingeben…"
+                placeholder="Enter word…"
                 style={{
                   flex: 1,
                   background: th.bgInput,
@@ -609,7 +611,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                   opacity: fillChecked || !fillInput.trim() ? 0.5 : 1,
                 }}
               >
-                Prüfen
+                Check
               </button>
             </div>
             {fillChecked && !correct && (
@@ -620,7 +622,7 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
                   color: th.textMuted,
                 }}
               >
-                Richtig wäre:{" "}
+                Correct answer:{" "}
                 <strong style={{ color: th.green }}>
                   {round.correctAnswer}
                 </strong>
@@ -642,11 +644,11 @@ export function QuizMode({ words, onClose, onAnswer, reviewMap: reviewMapProp })
           >
             {correct
               ? streak >= 3
-                ? `🔥 ${streak} in Folge!`
-                : ["Richtig! 🎯", "Gut gemacht! ✨", "Perfekt! 💪"][
+                ? `🔥 ${streak} in a row!`
+                : ["Correct! 🎯", "Well done! ✨", "Perfect! 💪"][
                     Math.floor(Math.random() * 3)
                   ]
-              : "Nicht ganz 😕"}
+              : "Not quite 😕"}
           </div>
         )}
       </div>

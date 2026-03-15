@@ -14,6 +14,8 @@ import { YouTubeAnalyzer } from "./components/YouTubeAnalyzer.jsx";
 import { SpotifyPlayer } from "./components/SpotifyPlayer.jsx";
 import { QuizMode } from "./components/QuizMode.jsx";
 import { handleCallback as handleSpotifyCallback } from "./lib/spotify.js";
+import { getLanguage } from "./lib/languages.js";
+import { LanguagePicker } from "./components/LanguagePicker.jsx";
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => {
@@ -34,6 +36,8 @@ export default function App() {
   const [retryingId, setRetryingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [suggestion, setSuggestion] = useState(null);
+  const [randomWordPreview, setRandomWordPreview] = useState(null);
+  const [randomWordLoading, setRandomWordLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
   const [wotd, setWotd] = useState(null);
@@ -43,6 +47,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("woerter");
   const [showQuiz, setShowQuiz] = useState(false);
   const [tagFilter, setTagFilter] = useState(null);
+  const [targetLang, setTargetLang] = useState(() => localStorage.getItem("wortschatz-lang") || "de");
+  const [targetLevel, setTargetLevel] = useState(() => {
+    const lang = localStorage.getItem("wortschatz-lang") || "de";
+    return localStorage.getItem(`wortschatz-level-${lang}`) || "B1";
+  });
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [immersive, setImmersive] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wortschatz-immersive") ?? "false"); } catch(e) { return false; }
+  });
+  const toggleImmersive = () => setImmersive(p => { const next = !p; localStorage.setItem("wortschatz-immersive", JSON.stringify(next)); return next; });
+  const langConfig = getLanguage(targetLang);
+  const uiLang = immersive ? langConfig.ui : null; // null = use English defaults
 
   useEffect(() => {
     const stored = sessionStorage.getItem("wortschatz-uid");
@@ -58,14 +74,48 @@ export default function App() {
   };
   const handleLogout = () => { sessionStorage.removeItem("wortschatz-uid"); setUserId(null); setWords([]); };
 
+  const savePreferences = (lang, level) => {
+    localStorage.setItem("wortschatz-lang", lang);
+    localStorage.setItem(`wortschatz-level-${lang}`, level);
+    if (userId) {
+      sbFetch("/rest/v1/user_preferences", {
+        method: "POST",
+        headers: { "Prefer": "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({ user_id: userId, target_language: lang, target_level: level, updated_at: new Date().toISOString() }),
+      }).catch(e => console.error("Preferences save failed:", e));
+    }
+  };
+
+  const handleLangChange = (code, level) => {
+    setTargetLang(code);
+    setTargetLevel(level);
+    savePreferences(code, level);
+    setWords([]);
+  };
+
   const loadWords = useCallback(async () => {
     if (!userId) return;
     setDbLoading(true);
     try {
-      const data = await sbFetch(`/rest/v1/vocabulary?user_id=eq.${userId}&select=*&order=added_at.desc`);
+      const data = await sbFetch(`/rest/v1/vocabulary?user_id=eq.${userId}&target_language=eq.${targetLang}&select=*&order=added_at.desc`);
       setWords((data||[]).map(w => ({ id:w.id, word:w.word, translation:w.translation, type:w.type, level:w.level||'', explanation:w.explanation, sentences:w.sentences, forms:w.forms||null, mastered:w.mastered, addedAt:w.added_at, tags:w.tags||[], quizCorrect:w.quiz_correct||0, quizTotal:w.quiz_total||0, quizLastReviewed:w.quiz_last_reviewed||null, source:w.source||null })));
     } catch(e) { console.error(e); }
     setDbLoading(false);
+  }, [userId, targetLang]);
+
+  useEffect(() => {
+    if (!userId) return;
+    sbFetch(`/rest/v1/user_preferences?user_id=eq.${userId}&select=*`)
+      .then(rows => {
+        if (rows && rows.length > 0) {
+          const { target_language, target_level } = rows[0];
+          setTargetLang(target_language);
+          setTargetLevel(target_level);
+          localStorage.setItem("wortschatz-lang", target_language);
+          localStorage.setItem(`wortschatz-level-${target_language}`, target_level);
+        }
+      })
+      .catch(e => console.error("Preferences load failed:", e));
   }, [userId]);
 
   useEffect(() => { if (userId) loadWords(); }, [userId, loadWords]);
@@ -74,22 +124,23 @@ export default function App() {
     if (!userId) return;
     const today = new Date().toISOString().slice(0, 10);
     setWotdLoading(true);
-    sbFetch(`/rest/v1/word_of_the_day?user_id=eq.${userId}&date=eq.${today}&select=*`)
+    setWotd(null); setWotdDbId(null);
+    sbFetch(`/rest/v1/word_of_the_day?user_id=eq.${userId}&date=eq.${today}&target_language=eq.${targetLang}&select=*`)
       .then(rows => {
         if (rows && rows.length > 0) {
           setWotd(rows[0].data); setWotdDbId(rows[0].id); setWotdLoading(false);
         } else {
-          fetchWordOfTheDay()
+          fetchWordOfTheDay(targetLang, targetLevel)
             .then(data => {
               setWotd(data);
-              return sbFetch("/rest/v1/word_of_the_day", { method:"POST", body:JSON.stringify({ user_id:userId, date:today, data }) })
+              return sbFetch("/rest/v1/word_of_the_day", { method:"POST", body:JSON.stringify({ user_id:userId, date:today, target_language:targetLang, data }) })
                 .then(res => { if (res && res.length > 0) setWotdDbId(res[0].id); });
             })
             .finally(() => setWotdLoading(false));
         }
       })
       .catch(e => { console.error("WOTD:", e); setWotdLoading(false); });
-  }, [userId]);
+  }, [userId, targetLang]);
 
   const toggleDark = () => {
     const next = !darkMode; setDarkMode(next);
@@ -99,7 +150,7 @@ export default function App() {
   const startListening = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { setError("Spracherkennung nicht unterstützt. Bitte Chrome verwenden."); return; }
-    const r = new SR(); r.lang = "de-DE"; r.interimResults = false; r.maxAlternatives = 1;
+    const r = new SR(); r.lang = langConfig.speechLang; r.interimResults = false; r.maxAlternatives = 1;
     recognitionRef.current = r;
     r.onresult = (e) => { setInput(e.results[0][0].transcript); setIsListening(false); };
     r.onerror = () => setIsListening(false); r.onend = () => setIsListening(false);
@@ -111,25 +162,25 @@ export default function App() {
     const trimmed = input.trim(); if (!trimmed) return;
     setLoading(true); setError(""); setSuggestion(null);
     try {
-      const ai = await fetchExampleSentences(trimmed);
+      const ai = await fetchExampleSentences(trimmed, targetLang, targetLevel);
       const finalWord = ai.word || trimmed;
-      if (words.find(w => w.word.toLowerCase() === finalWord.toLowerCase())) { setError("Dieses Wort ist bereits in deiner Liste."); setLoading(false); return; }
+      if (words.find(w => w.word.toLowerCase() === finalWord.toLowerCase())) { setError("This word is already in your list."); setLoading(false); return; }
       if (finalWord.toLowerCase() !== trimmed.toLowerCase()) { setSuggestion({ original:trimmed, corrected:finalWord, ai }); setLoading(false); return; }
       await saveWord(finalWord, ai);
-    } catch(e) { setError("Fehler: " + e.message); }
+    } catch(e) { setError("Error: " + e.message); }
     setLoading(false);
   };
 
   const saveWord = async (finalWord, ai, source = null) => {
     const autoTags = parseAutoTags(ai.tags);
-    const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false, tags:autoTags, source:source||null }) });
+    const result = await sbFetch("/rest/v1/vocabulary", { method:"POST", body:JSON.stringify({ user_id:userId, target_language:targetLang, word:finalWord, translation:ai.translation, type:ai.type, level:ai.level||"", explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null, mastered:false, tags:autoTags, source:source||null }) });
     const inserted = Array.isArray(result) ? result[0] : result;
     setWords(prev => [{ id:inserted.id, word:inserted.word, translation:inserted.translation, type:inserted.type, level:inserted.level||'', explanation:inserted.explanation, sentences:inserted.sentences, forms:ai.forms||inserted.forms||null, mastered:inserted.mastered, addedAt:inserted.added_at, tags:autoTags, quizCorrect:0, quizTotal:0, quizLastReviewed:null, source:source||null }, ...prev]);
     setInput(""); setExpandedId(inserted.id); setSuggestion(null);
   };
 
   const handleAddFromExternal = async (wordStr, source = null) => {
-    const ai = await fetchExampleSentences(wordStr);
+    const ai = await fetchExampleSentences(wordStr, targetLang, targetLevel);
     const finalWord = ai.word || wordStr;
     if (words.find(w => w.word.toLowerCase() === finalWord.toLowerCase())) return;
     await saveWord(finalWord, ai, source);
@@ -141,7 +192,7 @@ export default function App() {
   const handleRetry = async (w) => {
     setRetryingId(w.id);
     try {
-      const ai = await fetchExampleSentences(w.word);
+      const ai = await fetchExampleSentences(w.word, targetLang, targetLevel);
       await sbFetch(`/rest/v1/vocabulary?id=eq.${w.id}`, { method:"PATCH", body:JSON.stringify({ translation:ai.translation, type:ai.type, explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null }) });
       setWords(prev => prev.map(x => x.id===w.id ? { ...x, translation:ai.translation, type:ai.type, explanation:ai.explanation, sentences:ai.sentences, forms:ai.forms||null } : x));
     } catch(e) { console.error(e); }
@@ -165,8 +216,28 @@ export default function App() {
   const handleAddWotd = async () => {
     if (!wotd || wotdAdding) return;
     setWotdAdding(true);
-    try { await saveWord(wotd.word, wotd, "📅 Wort des Tages"); } catch(e) { console.error(e); }
+    try { await saveWord(wotd.word, wotd, "📅 Word of the Day"); } catch(e) { console.error(e); }
     setWotdAdding(false);
+  };
+
+  const handleRandomWord = async () => {
+    if (randomWordLoading) return;
+    setRandomWordLoading(true);
+    try {
+      const data = await fetchWordOfTheDay(targetLang, targetLevel);
+      setRandomWordPreview(data);
+    } catch(e) { console.error(e); }
+    setRandomWordLoading(false);
+  };
+
+  const handleAddRandomWord = async () => {
+    if (!randomWordPreview) return;
+    try {
+      if (!words.find(w => w.word.toLowerCase() === randomWordPreview.word.toLowerCase())) {
+        await saveWord(randomWordPreview.word, randomWordPreview, "🎲 Random word");
+      }
+    } catch(e) { console.error(e); }
+    setRandomWordPreview(null);
   };
 
   const handleRefreshWotd = async () => {
@@ -174,7 +245,7 @@ export default function App() {
     const today = new Date().toISOString().slice(0, 10);
     setWotdLoading(true);
     try {
-      const data = await fetchWordOfTheDay();
+      const data = await fetchWordOfTheDay(targetLang, targetLevel);
       if (wotdDbId) {
         await sbFetch(`/rest/v1/word_of_the_day?id=eq.${wotdDbId}`, { method:"PATCH", body:JSON.stringify({ data }) });
       } else {
@@ -211,15 +282,22 @@ export default function App() {
   const totalQuizCorrect = words.reduce((acc, w) => acc + (w.quizCorrect||0), 0);
   const totalQuizAttempts = words.reduce((acc, w) => acc + (w.quizTotal||0), 0);
 
-  if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Laden…</div>;
+  if (storageLoading) return <div style={{ minHeight:"100vh", background:th.bg, display:"flex", alignItems:"center", justifyContent:"center", color:th.textFaint, fontFamily:"'Inter',system-ui,sans-serif", fontSize:13 }}>Loading…</div>;
   if (!userId) return <PinScreen onEnter={handlePin} darkMode={darkMode} toggleDark={toggleDark} />;
 
   const TABS = [
-    { key:"woerter",  label:"Wörter",  emoji:"📖" },
-    { key:"heute",    label:"Heute",   emoji:"📅" },
-    { key:"spotify",  label:"Spotify", emoji:"🎵" },
-    { key:"analyse",  label:"Analyse", emoji:"📝" },
+    { key:"woerter",  label: uiLang?.tabs.vocabulary ?? "Vocabulary", emoji:"📖" },
+    { key:"heute",    label: uiLang?.tabs.today      ?? "Today",      emoji:"📅" },
+    { key:"spotify",  label: uiLang?.tabs.spotify    ?? "Spotify",    emoji:"🎵" },
+    { key:"analyse",  label: uiLang?.tabs.analyse    ?? "Analyse",    emoji:"📝" },
   ];
+  const filterLabel = (key, englishLabel) => {
+    if (!uiLang) return englishLabel;
+    const map = { all:"all", nomen:"nouns", verb:"verbs", ausdruck:"expressions", adjektiv:"adjectives", adverb:"adverbs", mastered:"mastered" };
+    return uiLang.filters[map[key]] ?? englishLabel;
+  };
+  // Shorthand: s("key", "English fallback")
+  const s = (key, fallback) => uiLang?.strings?.[key] ?? fallback;
 
   const popup = { background:th.bgCard, border:`1px solid ${th.border}`, borderRadius:18, padding:"32px 36px", maxWidth:390, width:"92%", textAlign:"center", fontFamily:"'Inter',system-ui,sans-serif", boxShadow: th.isDark ? "0 24px 80px rgba(0,0,0,0.7)" : "0 24px 80px rgba(0,0,0,0.13)" };
   const overlay = { position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(10px)", WebkitBackdropFilter:"blur(10px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100 };
@@ -227,6 +305,7 @@ export default function App() {
 
   return (
     <ThemeCtx.Provider value={th}>
+    {showLangPicker && <LanguagePicker current={targetLang} currentLevel={targetLevel} onChange={handleLangChange} onClose={() => setShowLangPicker(false)} />}
     <div style={{ minHeight:"100vh", background:th.bg, fontFamily:"'Inter',system-ui,sans-serif", color:th.text, transition:"background 0.3s, color 0.3s", paddingBottom: th.isMobile ? 72 : 0 }}>
 
       {/* ── Header ── */}
@@ -237,11 +316,17 @@ export default function App() {
             <span style={{ fontSize:9, color:th.textFaint, letterSpacing:"0.16em", textTransform:"uppercase", fontWeight:500 }}>C1</span>
           </div>
           <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            <button onClick={toggleDark} title={darkMode?"Heller Modus":"Dunkler Modus"} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
+            <button onClick={() => setShowLangPicker(true)} title="Change language" style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
+              {langConfig.flag}
+            </button>
+            <button onClick={toggleImmersive} title={immersive ? "Switch UI to English" : "Switch UI to target language"} style={{ background: immersive ? th.accentBg : "transparent", border:`1px solid ${immersive ? th.accent : th.border}`, borderRadius:8, padding:"6px 10px", fontSize:11, cursor:"pointer", color: immersive ? th.accent : th.textMuted, fontFamily:"inherit", fontWeight: immersive ? 600 : 400, lineHeight:1 }}>
+              Aa
+            </button>
+            <button onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding:"6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
               {darkMode ? "☀️" : "🌙"}
             </button>
             <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"6px 12px", cursor:"pointer", letterSpacing:"0.02em" }}>
-              {th.isMobile ? "🔒" : "Sperren"}
+              {th.isMobile ? "🔒" : "Lock"}
             </button>
           </div>
         </div>
@@ -272,18 +357,22 @@ export default function App() {
             <div style={{ display:"flex", gap:8, marginBottom:8 }}>
               <input value={input} onChange={e => { setInput(e.target.value); setError(""); setSuggestion(null); }}
                 onKeyDown={e => e.key==="Enter" && !loading && handleAdd()}
-                placeholder="Deutsches Wort oder Ausdruck…"
+                placeholder={s("placeholder", `${langConfig.name} word or expression…`)}
                 style={{ flex:1, background:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:12, padding:"12px 16px", fontSize:th.isMobile?16:15, color:th.text, outline:"none", fontFamily:"inherit", boxShadow: th.isDark ? "none" : "0 1px 4px rgba(0,0,0,0.06)" }} />
               <button onClick={isListening ? stopListening : startListening}
                 style={{ background:isListening?th.red:th.bgInput, border:`1.5px solid ${isListening?th.red:th.borderMid}`, borderRadius:12, padding:"12px 14px", fontSize:16, cursor:"pointer", transition:"all 0.2s", lineHeight:1, flexShrink:0 }}>
                 {isListening ? "⏹" : "🎤"}
               </button>
+              <button onClick={handleRandomWord} disabled={randomWordLoading} title={s("randomWord", "Random word")}
+                style={{ background:randomWordLoading?th.bgCard:th.bgInput, border:`1.5px solid ${th.borderMid}`, borderRadius:12, padding:"12px 14px", fontSize:16, cursor:randomWordLoading?"not-allowed":"pointer", transition:"all 0.2s", lineHeight:1, flexShrink:0 }}>
+                {randomWordLoading ? "…" : "🎲"}
+              </button>
               <button onClick={handleAdd} disabled={loading||!input.trim()}
                 style={{ background:loading?th.bgCard:th.accent, color:loading?th.textFaint:"#fff", border:"none", borderRadius:12, padding:"12px 20px", fontSize:12, fontFamily:"inherit", fontWeight:600, letterSpacing:"0.04em", cursor:loading?"not-allowed":"pointer", whiteSpace:"nowrap", flexShrink:0, boxShadow: loading?"none":`0 2px 12px ${th.accent}44` }}>
-                {loading ? "…" : th.isMobile ? "+" : "Hinzufügen"}
+                {loading ? "…" : th.isMobile ? "+" : s("addButton", "Add")}
               </button>
             </div>
-            {isListening && <p style={{ color:th.accent, fontSize:12, margin:0 }}>🎤 Höre zu… jetzt auf Deutsch sprechen</p>}
+            {isListening && <p style={{ color:th.accent, fontSize:12, margin:0 }}>🎤 Listening… speak now</p>}
             {error && <p style={{ color:th.red, fontSize:12, margin:0 }}>{error}</p>}
           </div>
 
@@ -291,19 +380,19 @@ export default function App() {
           <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap" }}>
             {/* Stats card */}
             <div style={{ flex:1, minWidth:140, background:th.bgCard, border:`1.5px solid ${th.border}`, borderRadius:14, padding:"14px 18px", display:"flex", flexDirection:"column", gap:6, boxShadow: th.isDark?"none":"0 2px 12px rgba(0,0,0,0.05)" }}>
-              <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>Dein Fortschritt</div>
+              <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>{s("yourProgress", "Your Progress")}</div>
               <div style={{ display:"flex", gap:16, alignItems:"baseline" }}>
                 <div>
                   <span style={{ fontSize:22, fontWeight:700, color:th.text }}>{words.length}</span>
-                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>Wörter</span>
+                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>{s("words", "words")}</span>
                 </div>
                 <div>
                   <span style={{ fontSize:22, fontWeight:700, color:th.green }}>{words.filter(w=>w.mastered).length}</span>
-                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>gelernt</span>
+                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>{s("masteredLabel", "mastered")}</span>
                 </div>
                 <div>
                   <span style={{ fontSize:22, fontWeight:700, color:th.accent }}>{words.filter(w=>!w.mastered).length}</span>
-                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>offen</span>
+                  <span style={{ fontSize:10, color:th.textFaint, marginLeft:4 }}>{s("toLearn", "to learn")}</span>
                 </div>
               </div>
               {words.length > 0 && (
@@ -314,9 +403,9 @@ export default function App() {
               {totalQuizAttempts > 0 && (
                 <div style={{ fontSize:10, color:th.textFaint, display:"flex", alignItems:"center", gap:6, marginTop:2 }}>
                   <span>🧠</span>
-                  <span>{quizzedCount} geübt</span>
+                  <span>{quizzedCount} {s("practised", "practised")}</span>
                   <span style={{ color:th.textDim }}>·</span>
-                  <span style={{ color:th.green }}>{Math.round(totalQuizCorrect/totalQuizAttempts*100)}% richtig</span>
+                  <span style={{ color:th.green }}>{Math.round(totalQuizCorrect/totalQuizAttempts*100)}% {s("correct", "correct")}</span>
                 </div>
               )}
             </div>
@@ -324,8 +413,8 @@ export default function App() {
             {/* Quiz card */}
             <button onClick={() => setShowQuiz(true)} style={{ flex:1, minWidth:140, background: th.isDark ? `linear-gradient(135deg, #1a1430 0%, #0f0d1a 100%)` : `linear-gradient(135deg, #eae8ff 0%, #f0eeff 100%)`, border:`1.5px solid ${th.accent}44`, borderRadius:14, padding:"14px 18px", cursor:"pointer", textAlign:"left", display:"flex", flexDirection:"column", gap:4, boxShadow:`0 2px 20px ${th.accent}22` }}>
               <div style={{ fontSize:24 }}>🧠</div>
-              <div style={{ fontSize:13, fontWeight:600, color:th.accent }}>Quiz starten</div>
-              <div style={{ fontSize:11, color:th.textMuted }}>{words.filter(w=>!w.mastered).length} bereit{quizzedCount > 0 ? ` · ${quizzedCount} geübt` : ""}</div>
+              <div style={{ fontSize:13, fontWeight:600, color:th.accent }}>{s("startQuiz", "Start quiz")}</div>
+              <div style={{ fontSize:11, color:th.textMuted }}>{words.filter(w=>!w.mastered).length} ready{quizzedCount > 0 ? ` · ${quizzedCount} ${s("practised", "practised")}` : ""}</div>
             </button>
           </div>
 
@@ -337,7 +426,7 @@ export default function App() {
                 const active = filter===key;
                 return (
                   <button key={key} onClick={() => setFilter(key)} style={{ display:"flex", alignItems:"center", gap:5, background:active?th.accent:th.bgCard, color:active?"#fff":th.textMuted, border:`1.5px solid ${active?th.accent:th.border}`, borderRadius:999, padding:th.isMobile?"4px 10px":"5px 13px", fontSize:th.isMobile?10:11, fontFamily:"inherit", fontWeight:active?600:400, cursor:"pointer", transition:"all 0.15s" }}>
-                    {label}
+                    {filterLabel(key, label)}
                     <span style={{ fontSize:10, background:active?"rgba(255,255,255,0.2)":th.pillBg, borderRadius:6, padding:"0 5px" }}>{count}</span>
                   </button>
                 );
@@ -345,9 +434,9 @@ export default function App() {
             </div>
             {allTags.length > 0 && (
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.08em", textTransform:"uppercase", flexShrink:0 }}>Thema</span>
+                <span style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.08em", textTransform:"uppercase", flexShrink:0 }}>{s("topicLabel", "Topic")}</span>
                 <select value={tagFilter||""} onChange={e => setTagFilter(e.target.value||null)} style={{ background:tagFilter?th.accentBg:th.bgCard, color:tagFilter?th.accent:th.textMuted, border:`1.5px solid ${tagFilter?th.accent+"66":th.border}`, borderRadius:8, padding:"4px 28px 4px 10px", fontSize:11, fontFamily:"inherit", cursor:"pointer", outline:"none", appearance:"none", WebkitAppearance:"none", backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E")`, backgroundRepeat:"no-repeat", backgroundPosition:"right 8px center" }}>
-                  <option value="">Alle Themen</option>
+                  <option value="">{s("allTopics", "All Topics")}</option>
                   {allTags.map(tag => <option key={tag} value={tag}>#{tag}</option>)}
                 </select>
                 {tagFilter && <button onClick={() => setTagFilter(null)} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:16, cursor:"pointer", lineHeight:1, padding:"0 2px" }}>×</button>}
@@ -357,11 +446,11 @@ export default function App() {
 
           {/* Word list */}
           <div style={{ paddingBottom: th.isMobile ? 16 : 48 }}>
-            {dbLoading && <div style={{ textAlign:"center", padding:"40px 0", color:th.textFaint, fontSize:13 }}>Lade deinen Wortschatz…</div>}
+            {dbLoading && <div style={{ textAlign:"center", padding:"40px 0", color:th.textFaint, fontSize:13 }}>Loading your vocabulary…</div>}
             {!dbLoading && filteredWords.length===0 && (
               <div style={{ textAlign:"center", padding:"60px 0", color:th.textDim }}>
                 <div style={{ fontSize:34, marginBottom:10 }}>📖</div>
-                <p style={{ fontSize:13 }}>{words.length===0 ? "Füge dein erstes Wort hinzu" : "Keine Wörter in dieser Kategorie"}</p>
+                <p style={{ fontSize:13 }}>{words.length===0 ? s("addFirst", "Add your first word") : s("noWords", "No words in this category")}</p>
               </div>
             )}
             {!dbLoading && filteredWords.map(w => {
@@ -372,7 +461,7 @@ export default function App() {
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
                         <span style={{ fontSize:16, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:w.mastered?th.textFaint:th.text, textDecoration:w.mastered?"line-through":"none" }}>{w.word}</span>
-                        <SpeakBtn text={w.word} size={12} />
+                        <SpeakBtn text={w.word} size={12} lang={langConfig.speechLang} />
                         <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:tc.bg, color:tc.text, letterSpacing:"0.06em", textTransform:"uppercase", fontWeight:600 }}>{w.type}</span>
                         {w.level && (() => { const lc = levelColor(w.level, th); return <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:lc.bg, color:lc.text, letterSpacing:"0.08em", fontWeight:700 }}>{w.level}</span>; })()}
                       </div>
@@ -397,7 +486,7 @@ export default function App() {
                     </div>
                     <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
                       <button onClick={e => { e.stopPropagation(); toggleMastered(w.id, w.mastered); }} style={{ background:w.mastered?th.accent+"22":"transparent", border:`1.5px solid ${w.mastered?th.accent:th.border}`, color:w.mastered?th.accent:th.textFaint, borderRadius:6, padding:"3px 8px", fontSize:10, fontFamily:"inherit", fontWeight:500, cursor:"pointer" }}>
-                        {w.mastered ? "✓" : th.isMobile ? "✓?" : "Gelernt?"}
+                        {w.mastered ? "✓" : th.isMobile ? "✓?" : s("masteredQ", "Mastered?")}
                       </button>
                       <button onClick={e => { e.stopPropagation(); setDeleteConfirmId(w.id); }} onMouseEnter={e=>e.target.style.color=th.red} onMouseLeave={e=>e.target.style.color=th.textFaint} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:18, cursor:"pointer", padding:"2px 4px", lineHeight:1, transition:"color 0.15s" }}>×</button>
                       <span style={{ color:th.textFaint, fontSize:11, display:"inline-block", transform:expandedId===w.id?"rotate(180deg)":"rotate(0)", transition:"transform 0.2s" }}>▾</span>
@@ -407,38 +496,38 @@ export default function App() {
                     <div style={{ borderTop:`1px solid ${th.border}`, padding:th.isMobile?"12px 14px 16px":"16px 18px 20px" }}>
                       <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.75, margin:"0 0 12px", fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{w.explanation}</p>
                       <button onClick={() => handleRetry(w)} disabled={isRetrying} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:6, color:isRetrying?th.textFaint:th.textMuted, fontSize:11, fontFamily:"inherit", fontWeight:500, padding:"4px 12px", cursor:isRetrying?"not-allowed":"pointer", marginBottom:18 }}>
-                        {isRetrying ? "⟳ Aktualisiere…" : "⟳ Erneut generieren"}
+                        {isRetrying ? "⟳ Updating…" : "⟳ Regenerate"}
                       </button>
-                      <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>Beispielsätze</div>
+                      <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:12 }}>Example sentences</div>
                       <div style={{ display:"flex", flexDirection:"column", gap:13 }}>
                         {(w.sentences||[]).map((s,i) => (
                           <div key={i} style={{ borderLeft:`2px solid ${th.borderMid}`, paddingLeft:13 }}>
                             <div style={{ fontSize:14, color:th.text, lineHeight:1.65, marginBottom:3, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                              <span>{s.german.split(new RegExp(`(${w.word})`,"gi")).map((part,j) => part.toLowerCase()===w.word.toLowerCase() ? <span key={j} style={{ color:th.accent }}>{part}</span> : part)}</span>
-                              <SpeakBtn text={s.german} size={12} />
+                              <span>{(s.target??s.german).split(new RegExp(`(${w.word})`,"gi")).map((part,j) => part.toLowerCase()===w.word.toLowerCase() ? <span key={j} style={{ color:th.accent }}>{part}</span> : part)}</span>
+                              <SpeakBtn text={s.target??s.german} size={12} lang={langConfig.speechLang} />
                             </div>
                             <div style={{ fontSize:12, color:th.textMuted, lineHeight:1.5 }}>{s.english}</div>
                           </div>
                         ))}
                       </div>
-                      <PronunciationPractice word={w.word} />
-                      <TagManager tags={w.tags||[]} onUpdate={(newTags) => updateTags(w.id, newTags)} />
+                      <PronunciationPractice word={w.word} speechLang={langConfig.speechLang} targetLanguage={targetLang} />
+                      <TagManager tags={w.tags||[]} onUpdate={(newTags) => updateTags(w.id, newTags)} uiLang={uiLang} />
                       {(w.quizTotal||0) > 0 && (
                         <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${th.border}` }}>
-                          <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>Quiz-Fortschritt</div>
+                          <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600, marginBottom:8 }}>{s("quizProgress", "Quiz progress")}</div>
                           <div style={{ display:"flex", gap:4, marginBottom:6 }}>
                             {[1,2,3,4,5].map(i => (
                               <div key={i} style={{ flex:1, height:5, borderRadius:3, background: i<=Math.min(w.quizCorrect||0,5) ? th.green : th.bgInset, transition:"background 0.3s" }} />
                             ))}
                           </div>
                           <div style={{ fontSize:11, color:th.textFaint }}>
-                            {w.quizCorrect||0} von {w.quizTotal} Versuchen richtig
-                            {(w.quizCorrect||0) >= 5 && <span style={{ color:th.green, marginLeft:8 }}>· Gut gemeistert! ✨</span>}
+                            {w.quizCorrect||0} {s("ofCorrect", "of")} {w.quizTotal} {s("correct", "correct")}
+                            {(w.quizCorrect||0) >= 5 && <span style={{ color:th.green, marginLeft:8 }}>· {s("wellMastered", "Well mastered! ✨")}</span>}
                           </div>
                         </div>
                       )}
                       <div style={{ fontSize:9, color:th.textDim, marginTop:14, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                        <span>Hinzugefügt am {new Date(w.addedAt).toLocaleDateString("de-DE",{day:"numeric",month:"short",year:"numeric"})}</span>
+                        <span>Added {new Date(w.addedAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</span>
                         {w.source && <span style={{ color:th.textFaint, background:th.bgInset, borderRadius:4, padding:"1px 6px" }}>{w.source}</span>}
                       </div>
                     </div>
@@ -453,8 +542,8 @@ export default function App() {
         {activeTab === "heute" && (
           <div style={{ paddingBottom:48 }}>
             <div style={{ marginBottom:6 }}>
-              <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Wort des Tages</div>
-              <WordOfTheDay wotd={wotd} loading={wotdLoading} alreadyAdded={!!(wotd && words.some(w => w.word.toLowerCase()===wotd.word.toLowerCase()))} onAdd={handleAddWotd} adding={wotdAdding} onRefresh={handleRefreshWotd} />
+              <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>{s("wotdSectionTitle", "Word of the Day")}</div>
+              <WordOfTheDay wotd={wotd} loading={wotdLoading} alreadyAdded={!!(wotd && words.some(w => w.word.toLowerCase()===wotd.word.toLowerCase()))} onAdd={handleAddWotd} adding={wotdAdding} onRefresh={handleRefreshWotd} speechLang={langConfig.speechLang} uiLang={uiLang} />
             </div>
           </div>
         )}
@@ -462,18 +551,18 @@ export default function App() {
         {/* ── SPOTIFY TAB ── */}
         {activeTab === "spotify" && (
           <div style={{ paddingBottom:48 }}>
-            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Spotify – Aktueller Song</div>
-            <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} />
+            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Spotify – Now Playing</div>
+            <SpotifyPlayer userId={userId} words={words} onSaveWord={handleAddFromExternal} targetLang={targetLang} uiLang={uiLang} />
           </div>
         )}
 
         {/* ── ANALYSE TAB ── */}
         {activeTab === "analyse" && (
           <div style={{ paddingBottom:48 }}>
-            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>Analyse</div>
-            <YouTubeAnalyzer words={words} onSaveWord={handleAddFromExternal} />
+            <div style={{ fontSize:10, color:th.textFaint, letterSpacing:"0.12em", textTransform:"uppercase", fontWeight:600, marginBottom:14 }}>{uiLang?.tabs.analyse ?? "Analyse"}</div>
+            <YouTubeAnalyzer words={words} onSaveWord={handleAddFromExternal} targetLang={targetLang} uiLang={uiLang} />
             <div style={{ marginTop:6 }} />
-            <TextAnalyzer words={words} />
+            <TextAnalyzer words={words} uiLang={uiLang} />
           </div>
         )}
 
@@ -498,7 +587,55 @@ export default function App() {
       {/* ── Modals ── */}
 
       {/* Quiz */}
-      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} onAnswer={handleQuizAnswer} reviewMap={reviewMap} />}
+      {showQuiz && <QuizMode words={words} onClose={() => setShowQuiz(false)} onAnswer={handleQuizAnswer} reviewMap={reviewMap} langConfig={langConfig} uiLang={uiLang} />}
+
+      {/* Random word preview */}
+      {randomWordPreview && (() => {
+        const rw = randomWordPreview;
+        const tc = typeColor(rw.type, th);
+        const lc = rw.level ? levelColor(rw.level, th) : null;
+        const alreadyHave = words.some(w => w.word.toLowerCase() === rw.word.toLowerCase());
+        return (
+          <div style={overlay} onClick={() => setRandomWordPreview(null)}>
+            <div onClick={e => e.stopPropagation()} style={{ ...popup, maxWidth:420, textAlign:"left" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                <span style={{ fontSize:11, color:th.textFaint, letterSpacing:"0.1em", textTransform:"uppercase", fontWeight:600 }}>🎲 {s("randomWord", "Random word")}</span>
+                <button onClick={() => setRandomWordPreview(null)} style={{ background:"transparent", border:"none", color:th.textFaint, fontSize:20, cursor:"pointer", lineHeight:1, padding:"0 2px" }}>×</button>
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:6 }}>
+                <span style={{ fontSize:26, fontFamily:"'Lora',Georgia,serif", fontWeight:500, color:th.text }}>{rw.word}</span>
+                <SpeakBtn text={rw.word} size={14} lang={langConfig.speechLang} />
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:tc.bg, color:tc.text, letterSpacing:"0.06em", textTransform:"uppercase", fontWeight:600 }}>{rw.type}</span>
+                {lc && <span style={{ fontSize:10, padding:"2px 7px", borderRadius:5, background:lc.bg, color:lc.text, letterSpacing:"0.08em", fontWeight:700 }}>{rw.level}</span>}
+              </div>
+              {rw.forms && <div style={{ fontSize:12, color:th.textWarm, marginBottom:4, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{rw.forms}</div>}
+              <div style={{ fontSize:14, color:th.textMuted, marginBottom:10 }}>{rw.translation}</div>
+              <p style={{ fontSize:13, color:th.textWarm, lineHeight:1.75, margin:"0 0 12px", fontFamily:"'Lora',Georgia,serif", fontStyle:"italic" }}>{rw.explanation}</p>
+              {(rw.sentences||[]).slice(0,1).map((s2,i) => (
+                <div key={i} style={{ borderLeft:`2px solid ${th.borderMid}`, paddingLeft:12, marginBottom:14 }}>
+                  <div style={{ fontSize:13, color:th.text, lineHeight:1.65, marginBottom:2 }}>{s2.target??s2.german}</div>
+                  <div style={{ fontSize:11, color:th.textMuted }}>{s2.english}</div>
+                </div>
+              ))}
+              {rw.funFact && (
+                <div style={{ background:th.accentBg, border:`1px solid ${th.accent}33`, borderRadius:8, padding:"8px 12px", marginBottom:14, fontSize:12, color:th.textGold, lineHeight:1.6 }}>
+                  💡 {rw.funFact}
+                </div>
+              )}
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                <button onClick={handleAddRandomWord} disabled={alreadyHave}
+                  style={{ background:alreadyHave?th.bgInset:th.accent, color:alreadyHave?th.textFaint:"#fff", border:"none", borderRadius:10, padding:"9px 18px", fontSize:12, fontFamily:"inherit", fontWeight:600, cursor:alreadyHave?"default":"pointer", boxShadow:alreadyHave?"none":`0 2px 10px ${th.accent}44`, flexShrink:0 }}>
+                  {alreadyHave ? s("alreadyInVocab", "✓ Already in your vocabulary") : s("addToVocab", "+ Add to vocabulary")}
+                </button>
+                <button onClick={handleRandomWord} disabled={randomWordLoading}
+                  style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:randomWordLoading?"not-allowed":"pointer" }}>
+                  {randomWordLoading ? "…" : s("tryAnother", "Try another")}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Suggestion / Meintest du? */}
       {suggestion && (() => {
@@ -509,9 +646,9 @@ export default function App() {
           <div style={overlay} onClick={() => setSuggestion(null)}>
             <div onClick={e=>e.stopPropagation()} style={{ ...popup, maxWidth:400 }}>
               <div style={{ fontSize:20, marginBottom:8 }}>{isCorrected ? "✏️" : "📖"}</div>
-              <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:14, fontWeight:600 }}>{isCorrected ? "Meintest du...?" : "Wort bestätigen"}</p>
+              <p style={{ color:th.textMuted, fontSize:11, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:14, fontWeight:600 }}>{isCorrected ? "Did you mean...?" : "Confirm word"}</p>
               <p style={{ color:th.text, fontSize:22, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic", marginBottom:6 }}>{suggestion.corrected}</p>
-              {isCorrected && <p style={{ color:th.textFaint, fontSize:12, marginBottom:10 }}>statt <span style={{ textDecoration:"line-through", color:th.textDim }}>{suggestion.original}</span></p>}
+              {isCorrected && <p style={{ color:th.textFaint, fontSize:12, marginBottom:10 }}>instead of <span style={{ textDecoration:"line-through", color:th.textDim }}>{suggestion.original}</span></p>}
               <div style={{ display:"flex", gap:6, justifyContent:"center", flexWrap:"wrap", marginBottom:10 }}>
                 <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:tc.bg, color:tc.text, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase" }}>{suggestion.ai.type}</span>
                 {suggestion.ai.level && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:5, background:lc.bg, color:lc.text, fontWeight:700, letterSpacing:"0.08em" }}>{suggestion.ai.level}</span>}
@@ -520,10 +657,10 @@ export default function App() {
               {suggestion.ai.forms && <p style={{ fontSize:12, color:th.textWarm, fontFamily:"'Lora',Georgia,serif", fontStyle:"italic", marginBottom:14 }}>{suggestion.ai.forms}</p>}
               {!suggestion.ai.forms && <div style={{ marginBottom:14 }} />}
               <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
-                <button onClick={() => setSuggestion(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>Abbrechen</button>
-                {isCorrected && <button onClick={rejectSuggestion} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>So behalten</button>}
+                <button onClick={() => setSuggestion(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>Cancel</button>
+                {isCorrected && <button onClick={rejectSuggestion} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"9px 16px", cursor:"pointer" }}>Keep as is</button>}
                 <button onClick={acceptSuggestion} style={{ background:th.accent, border:"none", borderRadius:10, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"9px 18px", cursor:"pointer", boxShadow:`0 2px 10px ${th.accent}55` }}>
-                  {isCorrected ? "Ja, korrigieren" : "Hinzufügen"}
+                  {isCorrected ? "Yes, correct it" : "Add"}
                 </button>
               </div>
             </div>
@@ -537,10 +674,10 @@ export default function App() {
           <div onClick={e=>e.stopPropagation()} style={popup}>
             <div style={{ fontSize:22, marginBottom:12 }}>🗑️</div>
             <p style={{ color:th.text, fontSize:15, marginBottom:6 }}><strong>{words.find(w=>w.id===deleteConfirmId)?.word}</strong></p>
-            <p style={{ color:th.textMuted, fontSize:13, lineHeight:1.6, marginBottom:24 }}>Möchtest du dieses Wort wirklich löschen? Das kann nicht rückgängig gemacht werden.</p>
+            <p style={{ color:th.textMuted, fontSize:13, lineHeight:1.6, marginBottom:24 }}>Are you sure you want to delete this word? This cannot be undone.</p>
             <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-              <button onClick={() => setDeleteConfirmId(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"8px 20px", cursor:"pointer" }}>Abbrechen</button>
-              <button onClick={() => handleDelete(deleteConfirmId)} style={{ background:th.red, border:"none", borderRadius:10, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"8px 20px", cursor:"pointer", boxShadow:`0 2px 10px ${th.red}55` }}>Löschen</button>
+              <button onClick={() => setDeleteConfirmId(null)} style={{ background:"transparent", border:`1px solid ${th.borderActive}`, borderRadius:10, color:th.textMuted, fontSize:12, fontFamily:"inherit", padding:"8px 20px", cursor:"pointer" }}>Cancel</button>
+              <button onClick={() => handleDelete(deleteConfirmId)} style={{ background:th.red, border:"none", borderRadius:10, color:"#fff", fontSize:12, fontFamily:"inherit", fontWeight:"bold", padding:"8px 20px", cursor:"pointer", boxShadow:`0 2px 10px ${th.red}55` }}>Delete</button>
             </div>
           </div>
         </div>

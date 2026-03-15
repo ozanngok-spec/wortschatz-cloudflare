@@ -4,8 +4,9 @@ import { startAuth, getCurrentlyPlaying, isConnected, clearTokens } from "../lib
 import { fetchLyrics } from "../lib/lyrics.js";
 import { buildSpotifySource } from "../lib/helpers.js";
 
-export function SpotifyPlayer({ userId, words, onSaveWord }) {
+export function SpotifyPlayer({ userId, words, onSaveWord, targetLang = "de", uiLang }) {
   const th = useTheme();
+  const s = (key, fallback) => uiLang?.strings?.[key] ?? fallback;
   const [connected, setConnected] = useState(false);
   const [track, setTrack] = useState(null);
   const [lyrics, setLyrics] = useState(null);
@@ -14,7 +15,7 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
   const [vocabSuggestions, setVocabSuggestions] = useState([]);
   const [vocabLoading, setVocabLoading] = useState(false);
   const [songLanguage, setSongLanguage] = useState(null);
-  const [isGerman, setIsGerman] = useState(false);
+  const [isTargetLanguage, setIsTargetLanguage] = useState(false);
   const [addingWord, setAddingWord] = useState(null);
   const lastTrackId = useRef(null);
   const pollRef = useRef(null);
@@ -40,7 +41,7 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
       setLyrics(null);
       setVocabSuggestions([]);
       setSongLanguage(null);
-      setIsGerman(false);
+      setIsTargetLanguage(false);
       setLyricsOpen(false);
       setLyricsLoading(false);
 
@@ -54,6 +55,7 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
             title: current.name,
             artist: current.artist,
             lyrics: null,
+            targetLanguage: targetLang,
           }),
         });
         if (res.ok) {
@@ -61,12 +63,12 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
           const lang = data.language || null;
           const noText = lang && /instrumental|klassik|classical/i.test(lang);
           setSongLanguage(noText ? null : lang);
-          setIsGerman(noText ? false : !!data.isGerman);
+          setIsTargetLanguage(noText ? false : !!data.isTargetLanguage);
         }
       } catch (e) { console.error("Language detection failed:", e); }
       setVocabLoading(false);
     }
-  }, [userId]);
+  }, [userId, targetLang]);
 
   useEffect(() => {
     if (!connected) return;
@@ -93,18 +95,18 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
     setLyrics(lyr);
     setLyricsOpen(true);
 
-    // If German and lyrics found, extract vocab
-    if (isGerman && lyr?.plainLyrics) {
+    // If target language and lyrics found, extract vocab
+    if (isTargetLanguage && lyr?.plainLyrics) {
       setVocabLoading(true);
       try {
         const res = await fetch("/spotify-vocab", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: track.name, artist: track.artist, lyrics: lyr.plainLyrics.slice(0, 3000) }),
+          body: JSON.stringify({ title: track.name, artist: track.artist, lyrics: lyr.plainLyrics.slice(0, 3000), targetLanguage: targetLang }),
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.isGerman) setVocabSuggestions(data.words || []);
+          if (data.isTargetLanguage) setVocabSuggestions(data.words || []);
         }
       } catch (e) { console.error("Vocab extraction failed:", e); }
       setVocabLoading(false);
@@ -132,10 +134,10 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
           <div>
             <div style={{ fontSize: 10, color: th.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>🎵 Spotify</div>
-            <div style={{ fontSize: 12, color: th.textMuted }}>Verbinde Spotify, um Vokabeln aus deinen Songs zu lernen</div>
+            <div style={{ fontSize: 12, color: th.textMuted }}>Connect Spotify to learn vocabulary from your songs</div>
           </div>
           <button onClick={handleConnect} style={{ background: spotifyGreen, color: "#fff", border: "none", borderRadius: 999, padding: "8px 18px", fontSize: 12, fontFamily: "inherit", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: `0 2px 12px ${spotifyGreen}55`, flexShrink: 0 }}>
-            Verbinden
+            Connect
           </button>
         </div>
       </div>
@@ -150,14 +152,14 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: track ? 14 : 0 }}>
           <div style={{ fontSize: 10, color: spotifyGreen, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: spotifyGreen, display: "inline-block", animation: track?.isPlaying ? "sp-pulse 2s infinite" : "none" }} />
-            Spotify {track?.isPlaying ? "· Läuft" : track ? "· Pausiert" : ""}
+            Spotify {track?.isPlaying ? "· Playing" : track ? "· Paused" : ""}
           </div>
-          <button onClick={handleDisconnect} style={{ background: "transparent", border: `1px solid ${th.border}`, borderRadius: 6, color: th.textFaint, fontSize: 10, fontFamily: "inherit", padding: "3px 8px", cursor: "pointer" }}>Trennen</button>
+          <button onClick={handleDisconnect} style={{ background: "transparent", border: `1px solid ${th.border}`, borderRadius: 6, color: th.textFaint, fontSize: 10, fontFamily: "inherit", padding: "3px 8px", cursor: "pointer" }}>Disconnect</button>
         </div>
 
         {/* Nothing playing */}
         {!track && (
-          <div style={{ color: th.textMuted, fontSize: 12, fontStyle: "italic", padding: "8px 0" }}>Spiele etwas auf Spotify ab…</div>
+          <div style={{ color: th.textMuted, fontSize: 12, fontStyle: "italic", padding: "8px 0" }}>{s("spotifyIdle", "Play something on Spotify…")}</div>
         )}
 
         {track && (
@@ -216,8 +218,8 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
               return (
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
                   <span title={songLanguage} style={{ fontSize: 18, cursor: "default", lineHeight: 1 }}>{flag}</span>
-                  {!isGerman && (
-                    <span style={{ fontSize: 11, color: th.textFaint }}>Vokabeln nur aus deutschen Songs</span>
+                  {!isTargetLanguage && (
+                    <span style={{ fontSize: 11, color: th.textFaint }}>Vocabulary only from songs in your target language</span>
                   )}
                 </div>
               );
@@ -228,9 +230,9 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
               <div style={{ marginTop: 12 }}>
                 <button onClick={handleFetchLyrics} disabled={lyricsLoading} style={{ background: "transparent", border: "none", color: th.textMuted, fontSize: 11, fontFamily: "inherit", cursor: lyricsLoading ? "wait" : "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4 }}>
                   {lyricsLoading ? (
-                    <><span style={{ display: "inline-block", animation: "sp-spin 1s linear infinite" }}>⟳</span> Songtext wird geladen…</>
+                    <><span style={{ display: "inline-block", animation: "sp-spin 1s linear infinite" }}>⟳</span> Loading lyrics…</>
                   ) : (
-                    <><span style={{ display: "inline-block", transform: lyricsOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", fontSize: 10 }}>▾</span> Songtext</>
+                    <><span style={{ display: "inline-block", transform: lyricsOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s", fontSize: 10 }}>▾</span> Lyrics</>
                   )}
                 </button>
                 {lyricsOpen && lyrics?.plainLyrics && (
@@ -239,10 +241,10 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
                   </div>
                 )}
                 {lyricsOpen && lyrics && !lyrics.plainLyrics && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: th.textFaint, fontStyle: "italic" }}>Kein Songtext gefunden</div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: th.textFaint, fontStyle: "italic" }}>No lyrics found</div>
                 )}
                 {lyricsOpen && lyrics === null && !lyricsLoading && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: th.textFaint, fontStyle: "italic" }}>Kein Songtext gefunden</div>
+                  <div style={{ marginTop: 8, fontSize: 11, color: th.textFaint, fontStyle: "italic" }}>No lyrics found</div>
                 )}
               </div>
             )}
@@ -251,14 +253,14 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
             {vocabLoading && (
               <div style={{ marginTop: 14, fontSize: 11, color: th.textFaint, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ display: "inline-block", animation: "sp-spin 1s linear infinite" }}>⟳</span>
-                Vokabeln werden extrahiert…
+                Extracting vocabulary…
               </div>
             )}
 
             {/* Vocab chips */}
             {vocabSuggestions.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ fontSize: 10, color: th.textFaint, letterSpacing: "0.10em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>Vokabeln aus dem Song</div>
+                <div style={{ fontSize: 10, color: th.textFaint, letterSpacing: "0.10em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>Vocabulary from this song</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                   {vocabSuggestions.map(v => {
                     const alreadyHave = words.some(w => w.word.toLowerCase() === v.word.toLowerCase());
@@ -278,7 +280,7 @@ export function SpotifyPlayer({ userId, words, onSaveWord }) {
 
             {/* No lyrics found */}
             {!vocabLoading && vocabSuggestions.length === 0 && !songLanguage && lyrics === null && track && (
-              <div style={{ marginTop: 12, fontSize: 11, color: th.textFaint, fontStyle: "italic" }}>Kein Songtext gefunden</div>
+              <div style={{ marginTop: 12, fontSize: 11, color: th.textFaint, fontStyle: "italic" }}>No lyrics found</div>
             )}
           </>
         )}

@@ -81,7 +81,7 @@ describe("fetchExampleSentences", () => {
     expect(fetch).toHaveBeenCalledWith("/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ word: "Gelassenheit" }),
+      body: JSON.stringify({ word: "Gelassenheit", targetLanguage: "de", targetLevel: "B1" }),
     });
     expect(result).toEqual(MOCK_WORD_RESPONSE);
     expect(result.sentences).toHaveLength(3);
@@ -137,6 +137,7 @@ describe("fetchPronunciationFeedback", () => {
       body: JSON.stringify({
         word: "Gelassenheit",
         transcript: "gelassenheit",
+        targetLanguage: "de",
       }),
     });
     expect(result.score).toBeGreaterThanOrEqual(0);
@@ -168,7 +169,7 @@ describe("fetchWordOfTheDay", () => {
 
     const result = await fetchWordOfTheDay();
 
-    expect(fetch).toHaveBeenCalledWith("/wotd");
+    expect(fetch).toHaveBeenCalledWith("/wotd?lang=de&level=B1");
     expect(result.word).toBe("der Ohrwurm");
     expect(result.sentences).toHaveLength(2);
     expect(result).toHaveProperty("funFact");

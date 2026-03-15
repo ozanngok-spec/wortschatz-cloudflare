@@ -79,8 +79,9 @@ export function buildFillBlank(word) {
     word.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     "gi"
   );
-  const blanked = s.german.replace(regex, "______");
-  if (blanked === s.german) return null; // word not found in sentence
+  const sent = s.target ?? s.german;
+  const blanked = sent.replace(regex, "______");
+  if (blanked === sent) return null; // word not found in sentence
   return {
     type: "fill",
     prompt: blanked,

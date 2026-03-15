@@ -9,15 +9,15 @@ const MOCK_CLAUDE_WORD = {
   explanation: "Beschreibt einen Zustand innerer Ruhe.",
   sentences: [
     {
-      german: "Sie bewunderte seine Gelassenheit.",
+      target: "Sie bewunderte seine Gelassenheit.",
       english: "She admired his composure.",
     },
     {
-      german: "Mit Gelassenheit meisterte er die Krise.",
+      target: "Mit Gelassenheit meisterte er die Krise.",
       english: "He mastered the crisis with serenity.",
     },
     {
-      german: "Gelassenheit ist eine Tugend.",
+      target: "Gelassenheit ist eine Tugend.",
       english: "Composure is a virtue.",
     },
   ],
@@ -27,12 +27,12 @@ const MOCK_CLAUDE_WORD = {
 
 const MOCK_PRONUNCIATION = {
   score: 85,
-  feedback: "Sehr gut!",
+  feedback: "Very good!",
   highlights: [
-    { token: "Ge", quality: "gut" },
-    { token: "las", quality: "gut" },
-    { token: "sen", quality: "mittel" },
-    { token: "heit", quality: "gut" },
+    { token: "Ge", quality: "good" },
+    { token: "las", quality: "good" },
+    { token: "sen", quality: "ok" },
+    { token: "heit", quality: "good" },
   ],
 };
 
@@ -43,8 +43,8 @@ const MOCK_WOTD = {
   level: "B2",
   explanation: "Ein Lied, das man nicht aus dem Kopf bekommt.",
   sentences: [
-    { german: "Das ist ein Ohrwurm.", english: "That's an earworm." },
-    { german: "Ich habe einen Ohrwurm.", english: "I have an earworm." },
+    { target: "Das ist ein Ohrwurm.", english: "That's an earworm." },
+    { target: "Ich habe einen Ohrwurm.", english: "I have an earworm." },
   ],
   forms: "der Ohrwurm (die Ohrwürmer)",
   funFact: "Kombiniert Ohr + Wurm.",
@@ -52,8 +52,8 @@ const MOCK_WOTD = {
 };
 
 const MOCK_SPOTIFY_GERMAN = {
-  language: "Deutsch",
-  isGerman: true,
+  language: "German",
+  isTargetLanguage: true,
   words: [
     { word: "der Luftballon", translation: "balloon", type: "Nomen" },
     { word: "der Horizont", translation: "horizon", type: "Nomen" },
@@ -61,8 +61,8 @@ const MOCK_SPOTIFY_GERMAN = {
 };
 
 const MOCK_SPOTIFY_ENGLISH = {
-  language: "Englisch",
-  isGerman: false,
+  language: "English",
+  isTargetLanguage: false,
   words: [],
 };
 
@@ -189,7 +189,7 @@ describe("POST /pronounce", () => {
 
     expect(data.score).toBe(85);
     expect(data.highlights).toHaveLength(4);
-    expect(data.highlights[0].quality).toBe("gut");
+    expect(data.highlights[0].quality).toBe("good");
   });
 });
 
@@ -204,7 +204,7 @@ describe("GET /wotd", () => {
         }),
     });
 
-    const req = new Request("https://test.com/wotd", { method: "GET" });
+    const req = new Request("https://test.com/wotd?lang=de&level=B1", { method: "GET" });
     const res = await workerDefault.fetch(req, mockEnv);
     const data = await res.json();
 
@@ -223,7 +223,7 @@ describe("GET /wotd", () => {
         }),
     });
 
-    const req = new Request("https://test.com/wotd", { method: "GET" });
+    const req = new Request("https://test.com/wotd?lang=de&level=B1", { method: "GET" });
     await workerDefault.fetch(req, mockEnv);
 
     const body = JSON.parse(global.fetch.mock.calls[0][1].body);
@@ -252,8 +252,8 @@ describe("POST /spotify-vocab", () => {
     const res = await workerDefault.fetch(req, mockEnv);
     const data = await res.json();
 
-    expect(data.isGerman).toBe(true);
-    expect(data.language).toBe("Deutsch");
+    expect(data.isTargetLanguage).toBe(true);
+    expect(data.language).toBe("German");
     expect(data.words.length).toBeGreaterThan(0);
   });
 
@@ -274,7 +274,7 @@ describe("POST /spotify-vocab", () => {
     const res = await workerDefault.fetch(req, mockEnv);
     const data = await res.json();
 
-    expect(data.isGerman).toBe(false);
+    expect(data.isTargetLanguage).toBe(false);
     expect(data.words).toHaveLength(0);
   });
 
@@ -296,7 +296,7 @@ describe("POST /spotify-vocab", () => {
     const data = await res.json();
 
     expect(data).toHaveProperty("language");
-    expect(data).toHaveProperty("isGerman");
+    expect(data).toHaveProperty("isTargetLanguage");
 
     // Verify the Claude prompt mentions no lyrics
     const claudeBody = JSON.parse(global.fetch.mock.calls[0][1].body);

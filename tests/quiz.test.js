@@ -18,7 +18,7 @@ const WORDS = [
     type: "Nomen",
     mastered: false,
     sentences: [
-      { german: "Der Hund läuft schnell.", english: "The dog runs fast." },
+      { target:"Der Hund läuft schnell.", english: "The dog runs fast." },
     ],
   },
   {
@@ -28,7 +28,7 @@ const WORDS = [
     type: "Verb",
     mastered: false,
     sentences: [
-      { german: "Ich laufe jeden Tag.", english: "I run every day." },
+      { target:"Ich laufe jeden Tag.", english: "I run every day." },
     ],
   },
   {
@@ -39,7 +39,7 @@ const WORDS = [
     mastered: false,
     sentences: [
       {
-        german: "Das Auto ist schnell.",
+        target:"Das Auto ist schnell.",
         english: "The car is fast.",
       },
     ],
@@ -52,7 +52,7 @@ const WORDS = [
     mastered: false,
     sentences: [
       {
-        german: "Die Katze schläft gern.",
+        target:"Die Katze schläft gern.",
         english: "The cat likes to sleep.",
       },
     ],
@@ -65,7 +65,7 @@ const WORDS = [
     mastered: true,
     sentences: [
       {
-        german: "Das Haus ist groß.",
+        target:"Das Haus ist groß.",
         english: "The house is big.",
       },
     ],
@@ -208,7 +208,7 @@ describe("buildFillBlank", () => {
     const mismatch = {
       ...WORDS[0],
       word: "xyz_never_in_sentence",
-      sentences: [{ german: "Hallo Welt", english: "Hello World" }],
+      sentences: [{ target:"Hallo Welt", english: "Hello World" }],
     };
     expect(buildFillBlank(mismatch)).toBeNull();
   });
@@ -255,7 +255,7 @@ describe("buildRound", () => {
       mastered: false,
       sentences: [
         {
-          german: "Das machen wir auf alle Fälle.",
+          target:"Das machen wir auf alle Fälle.",
           english: "We will do that in any case.",
         },
       ],
@@ -307,7 +307,7 @@ describe("buildRound", () => {
         type: "Nomen",
         mastered: false,
         sentences: [
-          { german: "Der Hund ist groß.", english: "The dog is big." },
+          { target:"Der Hund ist groß.", english: "The dog is big." },
         ],
       },
       {
@@ -317,7 +317,7 @@ describe("buildRound", () => {
         type: "Nomen",
         mastered: false,
         sentences: [
-          { german: "Die Katze schläft.", english: "The cat sleeps." },
+          { target:"Die Katze schläft.", english: "The cat sleeps." },
         ],
       },
     ];

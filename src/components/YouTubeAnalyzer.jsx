@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useTheme } from "../theme.js";
 
-export function YouTubeAnalyzer({ words, onSaveWord }) {
+export function YouTubeAnalyzer({ words, onSaveWord, targetLang = "de", uiLang }) {
+  const s = (key, fallback) => uiLang?.strings?.[key] ?? fallback;
   const th = useTheme();
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,20 +19,20 @@ export function YouTubeAnalyzer({ words, onSaveWord }) {
       const res = await fetch("/youtube-vocab", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), targetLanguage: targetLang }),
       });
       const data = await res.json();
       if (data.error === "no_captions") {
-        setError(`Keine Untertitel verfügbar${data.title ? ` für "${data.title}"` : ""}. Das Video braucht deutsche Untertitel.`);
-      } else if (data.error === "not_german") {
-        setError(`Das Video ist auf ${data.language || "einer anderen Sprache"} — Analyse ist nur für deutsche Videos möglich.`);
+        setError(`No captions available${data.title ? ` for "${data.title}"` : ""}. The video needs captions in your target language.`);
+      } else if (data.error === "not_target_language") {
+        setError(`Video is in ${data.language || "another language"} — analysis only works for ${data.targetLanguage || "your target language"}.`);
       } else if (data.error) {
         setError(data.error);
       } else {
         setResult(data);
       }
     } catch (e) {
-      setError("Fehler beim Analysieren: " + e.message);
+      setError("Analysis error:" + e.message);
     }
     setLoading(false);
   };
@@ -54,7 +55,7 @@ export function YouTubeAnalyzer({ words, onSaveWord }) {
     <div style={{ marginBottom: 8, background: th.bgCard, border: `1.5px solid ${th.border}`, borderRadius: 12, overflow: "hidden" }}>
       <div style={{ padding: th.isMobile ? "12px 14px" : "14px 18px" }}>
         <div style={{ fontSize: 10, color: th.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600, marginBottom: 12 }}>
-          🎬 YouTube-Analyse
+          🎬 YouTube Analysis
         </div>
 
         {!result ? (
@@ -64,19 +65,19 @@ export function YouTubeAnalyzer({ words, onSaveWord }) {
                 value={url}
                 onChange={e => { setUrl(e.target.value); setError(""); }}
                 onKeyDown={e => e.key === "Enter" && !loading && analyze()}
-                placeholder="YouTube-Link einfügen…"
+                placeholder={s("pasteYoutube", "Paste YouTube link…")}
                 style={{ flex: 1, background: th.bgInset, border: `1px solid ${th.borderMid}`, borderRadius: 8, padding: "10px 12px", fontSize: 13, color: th.text, outline: "none", fontFamily: "inherit" }}
               />
               <button
                 onClick={analyze}
                 disabled={loading || !url.trim()}
                 style={{ background: loading ? th.bgCard : th.accent, color: loading ? th.textFaint : "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 12, fontFamily: "inherit", fontWeight: 600, cursor: loading ? "wait" : "pointer", whiteSpace: "nowrap", flexShrink: 0, boxShadow: loading ? "none" : `0 2px 6px ${th.accent}44` }}>
-                {loading ? "⟳ Analysiere…" : "Analysieren"}
+                {loading ? `⟳ ${s("analysing", "Analysing…")}` : s("analyse", "Analyse")}
               </button>
             </div>
             {error && <p style={{ color: th.red, fontSize: 12, marginTop: 8, marginBottom: 0 }}>{error}</p>}
             <p style={{ fontSize: 11, color: th.textFaint, marginTop: 8, marginBottom: 0 }}>
-              Das Video muss deutsche Untertitel haben (manuell oder automatisch generiert).
+              {s("captionsHint", "The video needs captions in your target language (manual or auto-generated).")}
             </p>
           </>
         ) : (
@@ -86,7 +87,7 @@ export function YouTubeAnalyzer({ words, onSaveWord }) {
               <span style={{ fontSize: 20, lineHeight: 1 }}>🎬</span>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: th.text }}>{result.title}</div>
-                <div style={{ fontSize: 11, color: th.textFaint }}>{result.expressions?.length || 0} Ausdrücke gefunden</div>
+                <div style={{ fontSize: 11, color: th.textFaint }}>{result.expressions?.length || 0} {s("expressionsFound", "expressions found")}</div>
               </div>
             </div>
 
@@ -121,7 +122,7 @@ export function YouTubeAnalyzer({ words, onSaveWord }) {
                         onClick={() => handleAdd(expr)}
                         disabled={alreadyHave || isAdding}
                         style={{ background: alreadyHave ? th.bgInset : th.accentBg, color: alreadyHave ? th.textFaint : th.accent, border: `1px solid ${alreadyHave ? th.border : th.accent + "44"}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, fontFamily: "inherit", fontWeight: 500, cursor: alreadyHave ? "default" : "pointer", flexShrink: 0, opacity: alreadyHave ? 0.5 : 1 }}>
-                        {alreadyHave ? "✓" : isAdding ? "…" : "+ Hinzufügen"}
+                        {alreadyHave ? "✓" : isAdding ? "…" : s("addWord", "+ Add")}
                       </button>
                     </div>
                   </div>
@@ -130,7 +131,7 @@ export function YouTubeAnalyzer({ words, onSaveWord }) {
             </div>
 
             <button onClick={reset} style={{ marginTop: 14, background: "transparent", border: `1px solid ${th.borderMid}`, borderRadius: 6, color: th.textMuted, fontSize: 11, fontFamily: "inherit", padding: "5px 12px", cursor: "pointer" }}>
-              ← Neues Video
+              {s("newVideo", "← New video")}
             </button>
           </>
         )}
