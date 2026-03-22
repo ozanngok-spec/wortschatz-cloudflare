@@ -76,6 +76,12 @@ export default function App() {
 
   const handleToggleNotifications = async () => {
     if (!("serviceWorker" in navigator) || !VAPID_PUBLIC_KEY) return;
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+    if (isIos && !isStandalone) {
+      alert('On iPhone, first add this app to your Home Screen:\nSafari → Share → "Add to Home Screen"\nThen open it from the home screen icon and try again.');
+      return;
+    }
     setNotifLoading(true);
     try {
       const reg = await navigator.serviceWorker.ready;
