@@ -195,7 +195,7 @@ describe("POST /pronounce", () => {
 
 // ── /wotd route ───────────────────────────────────────────────────────────────
 describe("GET /wotd", () => {
-  it("returns word of the day", async () => {
+  it("returns word of the day with all required fields", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
@@ -214,22 +214,86 @@ describe("GET /wotd", () => {
     expect(data.tags).toEqual(["musik", "alltag"]);
   });
 
-  it("prompt requests tags field", async () => {
+  it("prompt contains the requested CEFR level", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () =>
-        Promise.resolve({
-          content: [{ text: JSON.stringify(MOCK_WOTD) }],
-        }),
+      json: () => Promise.resolve({ content: [{ text: JSON.stringify(MOCK_WOTD) }] }),
+    });
+
+    const req = new Request("https://test.com/wotd?lang=de&level=C1", { method: "GET" });
+    await workerDefault.fetch(req, mockEnv);
+
+    const prompt = JSON.parse(global.fetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).toContain("C1");
+  });
+
+  it("prompt contains a daily theme", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ content: [{ text: JSON.stringify(MOCK_WOTD) }] }),
     });
 
     const req = new Request("https://test.com/wotd?lang=de&level=B1", { method: "GET" });
     await workerDefault.fetch(req, mockEnv);
 
-    const body = JSON.parse(global.fetch.mock.calls[0][1].body);
-    const prompt = body.messages[0].content;
-    expect(prompt).toContain('"tags"');
-    expect(prompt).toContain("topic");
+    const prompt = JSON.parse(global.fetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).toContain("theme");
+  });
+
+  it("prompt includes exclude list when provided", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ content: [{ text: JSON.stringify(MOCK_WOTD) }] }),
+    });
+
+    const req = new Request("https://test.com/wotd?lang=de&level=B1&exclude=Schadenfreude,Weltschmerz", { method: "GET" });
+    await workerDefault.fetch(req, mockEnv);
+
+    const prompt = JSON.parse(global.fetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).toContain("Schadenfreude");
+    expect(prompt).toContain("Weltschmerz");
+  });
+
+  it("prompt has no exclude instruction when exclude param is empty", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ content: [{ text: JSON.stringify(MOCK_WOTD) }] }),
+    });
+
+    const req = new Request("https://test.com/wotd?lang=de&level=B1", { method: "GET" });
+    await workerDefault.fetch(req, mockEnv);
+
+    const prompt = JSON.parse(global.fetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).not.toContain("Do NOT use any of these recently shown words");
+  });
+
+  it("prompt discourages listicle/untranslatable word bias", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ content: [{ text: JSON.stringify(MOCK_WOTD) }] }),
+    });
+
+    const req = new Request("https://test.com/wotd?lang=de&level=B1", { method: "GET" });
+    await workerDefault.fetch(req, mockEnv);
+
+    const prompt = JSON.parse(global.fetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).toContain("listicle");
+  });
+
+  it("works with non-German languages", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ content: [{ text: JSON.stringify({ ...MOCK_WOTD, word: "sobremesa" }) }] }),
+    });
+
+    const req = new Request("https://test.com/wotd?lang=es&level=B2", { method: "GET" });
+    const res = await workerDefault.fetch(req, mockEnv);
+    const data = await res.json();
+
+    expect(data.word).toBe("sobremesa");
+    const prompt = JSON.parse(global.fetch.mock.calls[0][1].body).messages[0].content;
+    expect(prompt).toContain("Spanish");
+    expect(prompt).toContain("B2");
   });
 });
 

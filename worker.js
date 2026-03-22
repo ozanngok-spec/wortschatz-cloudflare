@@ -117,14 +117,31 @@ Return ONLY the raw JSON object, no markdown, no code fences.`;
   });
 }
 
-async function handleWotd(req, env) {
-  const url = new URL(req.url);
-  const targetLanguage = url.searchParams.get("lang") || "de";
-  const targetLevel = url.searchParams.get("level") || "B1";
+async function generateWotd(targetLanguage, targetLevel, exclude, env) {
   const lang = getLang(targetLanguage);
   const types = lang.types.join('", "');
   const date = new Date().toISOString().slice(0, 10);
-  const prompt = `Today is ${date}. Choose one interesting ${lang.name} word or expression for a ${targetLevel} learner. It should be at or just above ${targetLevel} level to challenge the learner. It can be a single word or a multi-word expression (idiom, proverb, or compound). Vary the type freely. Prefer culturally rich, nuanced, or surprising choices that a native speaker would find natural but a learner might not know.
+
+  const THEMES = [
+    "daily routines & household", "emotions & mental states", "work & professional life",
+    "food, cooking & eating", "travel & getting around", "nature & weather",
+    "relationships & social situations", "health & the human body", "time, planning & scheduling",
+    "abstract ideas & opinions", "money & shopping", "technology & media",
+  ];
+  const dayOfYear = Math.floor((new Date(date) - new Date(date.slice(0, 4))) / 86400000);
+  const theme = THEMES[dayOfYear % THEMES.length];
+
+  const excludeInstruction = exclude.length > 0
+    ? `\nDo NOT use any of these recently shown words: ${exclude.join(", ")}.`
+    : "";
+
+  const prompt = `Today is ${date}. Choose one ${lang.name} word or expression for a ${targetLevel} learner.
+
+Selection rules:
+- Match ${targetLevel} CEFR level (see definitions below).
+- Today's theme is "${theme}" — prefer a word from this domain, but only if a natural ${targetLevel}-level word exists there; do not force it.
+- Vary the word type: verbs, adjectives, adverbs, modal particles, collocations, and everyday expressions are just as valid as nouns. Do not default to nouns.
+- Pick practical vocabulary a learner will encounter in real speech or writing, not words famous for being "untranslatable" or appearing in listicles.${excludeInstruction}
 
 Return a JSON object with:
 - "word": the word or expression
@@ -147,8 +164,23 @@ ${lang.formsInstructions}
 
 Return ONLY the raw JSON object, no markdown, no code fences.`;
 
-  const text = await callClaude(env.ANTHROPIC_API_KEY, prompt, 800);
-  const json = JSON.parse(stripFences(text));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const text = await callClaude(env.ANTHROPIC_API_KEY, prompt, 800);
+    try {
+      return JSON.parse(stripFences(text));
+    } catch (e) {
+      if (attempt === 1) throw e;
+    }
+  }
+}
+
+async function handleWotd(req, env) {
+  const url = new URL(req.url);
+  const targetLanguage = url.searchParams.get("lang") || "de";
+  const targetLevel = url.searchParams.get("level") || "B1";
+  const excludeParam = url.searchParams.get("exclude") || "";
+  const exclude = excludeParam ? excludeParam.split(",").map(w => w.trim()).filter(Boolean) : [];
+  const json = await generateWotd(targetLanguage, targetLevel, exclude, env);
   return new Response(JSON.stringify(json), {
     headers: { "Content-Type": "application/json", ...CORS },
   });
@@ -449,6 +481,160 @@ async function handleTravelTts(req, env) {
   });
 }
 
+// ── Supabase helper (worker-side) ─────────────────────────────────────────────
+const SB_URL = "https://yhdwabrbsyeexllrbdni.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InloZHdhYnJic3llZXhsbHJiZG5pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMTMyMjAsImV4cCI6MjA4ODg4OTIyMH0.cs0IYZ6am2LTNfSL9-ugdSECQTSmV7rzUwTKRcKOMVc";
+
+async function sbWorker(path, method = "GET", body = null, extraHeaders = {}) {
+  const res = await fetch(`${SB_URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, ...extraHeaders },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ── Web Push helpers (RFC 8188 + RFC 8291 + RFC 8292) ─────────────────────────
+function u8ToB64url(u8) {
+  let s = "";
+  for (const b of u8) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+function b64urlToU8(str) {
+  const b = atob(str.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(b, c => c.charCodeAt(0));
+}
+function strToB64url(str) {
+  return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+function concatU8(...arrays) {
+  const out = new Uint8Array(arrays.reduce((n, a) => n + a.length, 0));
+  let i = 0; for (const a of arrays) { out.set(a, i); i += a.length; }
+  return out;
+}
+async function hkdfExtract(salt, ikm) {
+  const key = await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, ikm));
+}
+async function hkdfExpand(prk, info, len) {
+  const key = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const N = Math.ceil(len / 32);
+  let t = new Uint8Array(0);
+  const out = new Uint8Array(N * 32);
+  for (let i = 1; i <= N; i++) {
+    t = new Uint8Array(await crypto.subtle.sign("HMAC", key, concatU8(t, info, new Uint8Array([i]))));
+    out.set(t, (i - 1) * 32);
+  }
+  return out.slice(0, len);
+}
+
+async function encryptWebPush(subscription, plaintext) {
+  const recvPub = b64urlToU8(subscription.keys.p256dh);
+  const authSecret = b64urlToU8(subscription.keys.auth);
+  const senderKP = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const senderPub = new Uint8Array(await crypto.subtle.exportKey("raw", senderKP.publicKey));
+  const recvKey = await crypto.subtle.importKey("raw", recvPub, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const ecdhSecret = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: recvKey }, senderKP.privateKey, 256));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const prk = await hkdfExtract(authSecret, ecdhSecret);
+  const ikm = await hkdfExpand(prk, concatU8(new TextEncoder().encode("WebPush: info\x00"), recvPub, senderPub), 32);
+  const prk2 = await hkdfExtract(salt, ikm);
+  const cek = await hkdfExpand(prk2, new TextEncoder().encode("Content-Encoding: aes128gcm\x00"), 16);
+  const nonce = await hkdfExpand(prk2, new TextEncoder().encode("Content-Encoding: nonce\x00"), 12);
+  const aesKey = await crypto.subtle.importKey("raw", cek, { name: "AES-GCM" }, false, ["encrypt"]);
+  const padded = concatU8(new TextEncoder().encode(plaintext), new Uint8Array([0x02]));
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, aesKey, padded));
+  const rs = new Uint8Array(4); new DataView(rs.buffer).setUint32(0, 4096, false);
+  return concatU8(salt, rs, new Uint8Array([senderPub.length]), senderPub, ciphertext);
+}
+
+async function vapidJwt(endpoint, privB64, pubB64, subject) {
+  const pub = b64urlToU8(pubB64);
+  const jwk = { kty: "EC", crv: "P-256", d: privB64, x: u8ToB64url(pub.slice(1, 33)), y: u8ToB64url(pub.slice(33, 65)) };
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const header = strToB64url(JSON.stringify({ typ: "JWT", alg: "ES256" }));
+  const payload = strToB64url(JSON.stringify({ aud: new URL(endpoint).origin, exp: Math.floor(Date.now() / 1000) + 43200, sub: subject }));
+  const toSign = `${header}.${payload}`;
+  const sig = u8ToB64url(new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(toSign))));
+  return `${toSign}.${sig}`;
+}
+
+async function sendPush(subscription, data, env) {
+  if (!env.VAPID_PRIVATE_KEY) return;
+  const body = await encryptWebPush(subscription, JSON.stringify(data));
+  const jwt = await vapidJwt(subscription.endpoint, env.VAPID_PRIVATE_KEY, env.VAPID_PUBLIC_KEY, env.VAPID_SUBJECT);
+  return fetch(subscription.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Encoding": "aes128gcm",
+      "Authorization": `vapid t=${jwt},k=${env.VAPID_PUBLIC_KEY}`,
+      "TTL": "86400",
+    },
+    body,
+  });
+}
+
+// ── Push subscription routes ───────────────────────────────────────────────────
+async function handlePushSubscribe(req, env) {
+  const { userId, subscription } = await req.json();
+  if (!userId || !subscription) return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { "Content-Type": "application/json", ...CORS } });
+  await sbWorker("/rest/v1/push_subscriptions", "POST", { user_id: userId, subscription }, { Prefer: "resolution=merge-duplicates", "on-conflict": "user_id,subscription->>'endpoint'" });
+  return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json", ...CORS } });
+}
+
+async function handlePushTest(req, env) {
+  const { userId } = await req.json();
+  if (!userId) return new Response(JSON.stringify({ error: "Missing userId" }), { status: 400, headers: { "Content-Type": "application/json", ...CORS } });
+  const rows = await sbWorker(`/rest/v1/push_subscriptions?user_id=eq.${userId}&select=subscription`).catch(() => []);
+  if (!rows?.length) return new Response(JSON.stringify({ error: "No subscription found" }), { status: 404, headers: { "Content-Type": "application/json", ...CORS } });
+  for (const row of rows) {
+    await sendPush(row.subscription, { title: "Wortschatz 🔔", body: "Push notifications are working!", url: "/" }, env);
+  }
+  return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json", ...CORS } });
+}
+
+async function handlePushUnsubscribe(req, env) {
+  const { userId, endpoint } = await req.json();
+  if (!userId) return new Response(JSON.stringify({ error: "Missing userId" }), { status: 400, headers: { "Content-Type": "application/json", ...CORS } });
+  const filter = endpoint
+    ? `/rest/v1/push_subscriptions?user_id=eq.${userId}&subscription->>endpoint=eq.${encodeURIComponent(endpoint)}`
+    : `/rest/v1/push_subscriptions?user_id=eq.${userId}`;
+  await sbWorker(filter, "DELETE");
+  return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json", ...CORS } });
+}
+
+// ── Daily cron ─────────────────────────────────────────────────────────────────
+async function sendDailyPushes(env) {
+  if (!env.VAPID_PRIVATE_KEY) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = await sbWorker("/rest/v1/push_subscriptions?select=user_id,subscription").catch(() => []);
+  if (!rows?.length) return;
+  const ids = rows.map(r => `"${r.user_id}"`).join(",");
+  const prefs = await sbWorker(`/rest/v1/user_preferences?user_id=in.(${ids})&select=user_id,target_language,target_level`).catch(() => []);
+  const prefsMap = Object.fromEntries((prefs || []).map(p => [p.user_id, p]));
+  for (const row of rows) {
+    try {
+      const pref = prefsMap[row.user_id] || {};
+      const lang = pref.target_language || "de";
+      const level = pref.target_level || "B1";
+      const hist = await sbWorker(`/rest/v1/word_of_the_day?user_id=eq.${row.user_id}&target_language=eq.${lang}&select=data&order=date.desc&limit=30`).catch(() => []);
+      const exclude = (hist || []).map(r => r.data?.word).filter(Boolean);
+      const wotd = await generateWotd(lang, level, exclude, env);
+      await sbWorker("/rest/v1/word_of_the_day", "POST", { user_id: row.user_id, date: today, target_language: lang, data: wotd }, { Prefer: "resolution=ignore-duplicates" }).catch(() => {});
+      await sendPush(row.subscription, {
+        title: `${getLang(lang).name} · Word of the Day`,
+        body: `${wotd.word} — ${wotd.translation} (${wotd.level})`,
+        url: "/",
+      }, env);
+    } catch (e) {
+      console.error(`Push failed for ${row.user_id}:`, e.message);
+    }
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -493,6 +679,22 @@ export default {
       return handleTravelTts(request, env);
     }
 
+    if (request.method === "POST" && url.pathname === "/push-subscribe") {
+      return handlePushSubscribe(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/push-unsubscribe") {
+      return handlePushUnsubscribe(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/push-test") {
+      return handlePushTest(request, env);
+    }
+
     return env.ASSETS.fetch(request);
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendDailyPushes(env));
   },
 };

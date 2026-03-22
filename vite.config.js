@@ -12,6 +12,9 @@ export default defineConfig({
     proxy: {
       "/claude": "http://localhost:8787",
       "/pronounce": "http://localhost:8787",
+      "/push-subscribe": "http://localhost:8787",
+      "/push-unsubscribe": "http://localhost:8787",
+      "/push-test": "http://localhost:8787",
     },
   },
 });

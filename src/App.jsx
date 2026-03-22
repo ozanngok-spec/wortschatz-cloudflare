@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ThemeCtx, DARK, LIGHT } from "./theme.js";
 import { useIsMobile } from "./hooks/useIsMobile.js";
 import { sbFetch, hashPin } from "./lib/supabase.js";
-import { fetchExampleSentences, fetchWordOfTheDay } from "./lib/api.js";
+import { fetchExampleSentences, fetchWordOfTheDay, subscribePush, unsubscribePush, testPush } from "./lib/api.js";
 import { TYPE_FILTERS, matchesTypeFilter, typeColor, levelColor, parseAutoTags } from "./lib/helpers.js";
 import { SpeakBtn } from "./components/SpeakBtn.jsx";
 import { PronunciationPractice } from "./components/PronunciationPractice.jsx";
@@ -60,6 +60,52 @@ export default function App() {
   const toggleImmersive = () => setImmersive(p => { const next = !p; localStorage.setItem("wortschatz-immersive", JSON.stringify(next)); return next; });
   const langConfig = getLanguage(targetLang);
   const uiLang = immersive ? langConfig.ui : null; // null = use English defaults
+
+  // ── Push notifications ──────────────────────────────────────────────────────
+  const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
+  const [notifSubscribed, setNotifSubscribed] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
+
+  useEffect(() => {
+    if (!userId || !("serviceWorker" in navigator) || !VAPID_PUBLIC_KEY) return;
+    navigator.serviceWorker.register("/sw.js").then(async (reg) => {
+      const existing = await reg.pushManager.getSubscription();
+      setNotifSubscribed(!!existing);
+    }).catch(() => {});
+  }, [userId]);
+
+  const handleToggleNotifications = async () => {
+    if (!("serviceWorker" in navigator) || !VAPID_PUBLIC_KEY) return;
+    setNotifLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (notifSubscribed) {
+        const sub = await reg.pushManager.getSubscription();
+        const endpoint = sub?.endpoint;
+        if (sub) await sub.unsubscribe();
+        await unsubscribePush(userId, endpoint);
+        setNotifSubscribed(false);
+      } else {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") return;
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+        await subscribePush(userId, sub.toJSON());
+        setNotifSubscribed(true);
+      }
+    } catch (e) { console.error("Notification toggle failed:", e); }
+    setNotifLoading(false);
+  };
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    return Uint8Array.from(raw, c => c.charCodeAt(0));
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const stored = sessionStorage.getItem("wortschatz-uid");
@@ -137,7 +183,10 @@ export default function App() {
         if (rows && rows.length > 0) {
           setWotd(rows[0].data); setWotdDbId(rows[0].id); setWotdLoading(false);
         } else {
-          fetchWordOfTheDay(targetLang, targetLevel)
+          sbFetch(`/rest/v1/word_of_the_day?user_id=eq.${userId}&target_language=eq.${targetLang}&select=data&order=date.desc&limit=30`)
+            .then(hist => (hist || []).map(r => r.data?.word).filter(Boolean))
+            .catch(() => [])
+            .then(exclude => fetchWordOfTheDay(targetLang, targetLevel, exclude))
             .then(data => {
               setWotd(data);
               return sbFetch("/rest/v1/word_of_the_day", { method:"POST", body:JSON.stringify({ user_id:userId, date:today, target_language:targetLang, data }) })
@@ -237,7 +286,9 @@ export default function App() {
     if (randomWordLoading) return;
     setRandomWordLoading(true);
     try {
-      const data = await fetchWordOfTheDay(targetLang, targetLevel);
+      const hist = await sbFetch(`/rest/v1/word_of_the_day?user_id=eq.${userId}&target_language=eq.${targetLang}&select=data&order=date.desc&limit=30`).catch(() => []);
+      const exclude = (hist || []).map(r => r.data?.word).filter(Boolean);
+      const data = await fetchWordOfTheDay(targetLang, targetLevel, exclude);
       setRandomWordPreview(data);
     } catch(e) { console.error(e); }
     setRandomWordLoading(false);
@@ -258,7 +309,9 @@ export default function App() {
     const today = new Date().toISOString().slice(0, 10);
     setWotdLoading(true);
     try {
-      const data = await fetchWordOfTheDay(targetLang, targetLevel);
+      const hist = await sbFetch(`/rest/v1/word_of_the_day?user_id=eq.${userId}&target_language=eq.${targetLang}&select=data&order=date.desc&limit=30`).catch(() => []);
+      const exclude = (hist || []).map(r => r.data?.word).filter(Boolean);
+      const data = await fetchWordOfTheDay(targetLang, targetLevel, exclude);
       if (wotdDbId) {
         await sbFetch(`/rest/v1/word_of_the_day?id=eq.${wotdDbId}`, { method:"PATCH", body:JSON.stringify({ data }) });
       } else {
@@ -340,6 +393,20 @@ export default function App() {
             <button onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:14, cursor:"pointer", color:th.textMuted, lineHeight:1 }}>
               {darkMode ? "☀️" : "🌙"}
             </button>
+            {"serviceWorker" in navigator && VAPID_PUBLIC_KEY && (
+              <>
+                <button onClick={handleToggleNotifications} disabled={notifLoading} title={notifSubscribed ? "Disable daily word notification" : "Enable daily word notification"}
+                  style={{ background: notifSubscribed ? th.accentBg : "transparent", border:`1px solid ${notifSubscribed ? th.accent : th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:14, cursor:notifLoading?"wait":"pointer", color: notifSubscribed ? th.accent : th.textMuted, lineHeight:1, opacity: notifLoading ? 0.5 : 1 }}>
+                  {notifSubscribed ? "🔔" : "🔕"}
+                </button>
+                {notifSubscribed && (
+                  <button onClick={() => testPush(userId).catch(console.error)} title="Send test notification"
+                    style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:11, cursor:"pointer", color:th.textMuted, fontFamily:"inherit", lineHeight:1 }}>
+                    Test
+                  </button>
+                )}
+              </>
+            )}
             <button onClick={handleLogout} style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, color:th.textFaint, fontSize:11, fontFamily:"inherit", fontWeight:500, padding: th.isMobile ? "5px 8px" : "6px 12px", cursor:"pointer", letterSpacing:"0.02em" }}>
               {th.isMobile ? "🔒" : "Lock"}
             </button>

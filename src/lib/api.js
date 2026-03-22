@@ -19,8 +19,40 @@ export async function fetchPronunciationFeedback(targetWord, transcript, targetL
   return await response.json();
 }
 
-export async function fetchWordOfTheDay(targetLanguage = "de", targetLevel = "B1") {
-  const response = await fetch(`/wotd?lang=${targetLanguage}&level=${targetLevel}`);
+export async function testPush(userId) {
+  const response = await fetch("/push-test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!response.ok) throw new Error(`Test push error ${response.status}`);
+  return response.json();
+}
+
+export async function subscribePush(userId, subscription) {
+  const response = await fetch("/push-subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, subscription }),
+  });
+  if (!response.ok) throw new Error(`Subscribe error ${response.status}`);
+  return response.json();
+}
+
+export async function unsubscribePush(userId, endpoint) {
+  const response = await fetch("/push-unsubscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, endpoint }),
+  });
+  if (!response.ok) throw new Error(`Unsubscribe error ${response.status}`);
+  return response.json();
+}
+
+export async function fetchWordOfTheDay(targetLanguage = "de", targetLevel = "B1", exclude = []) {
+  const params = new URLSearchParams({ lang: targetLanguage, level: targetLevel });
+  if (exclude.length > 0) params.set("exclude", exclude.join(","));
+  const response = await fetch(`/wotd?${params}`);
   if (!response.ok) throw new Error(`WOTD error ${response.status}`);
   return await response.json();
 }
