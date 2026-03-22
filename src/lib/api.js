@@ -19,11 +19,11 @@ export async function fetchPronunciationFeedback(targetWord, transcript, targetL
   return await response.json();
 }
 
-export async function testPush(userId) {
+export async function testPush(userId, endpoint) {
   const response = await fetch("/push-test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId }),
+    body: JSON.stringify({ userId, endpoint }),
   });
   if (!response.ok) throw new Error(`Test push error ${response.status}`);
   return response.json();

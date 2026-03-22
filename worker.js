@@ -586,9 +586,12 @@ async function handlePushSubscribe(req, env) {
 }
 
 async function handlePushTest(req, env) {
-  const { userId } = await req.json();
+  const { userId, endpoint } = await req.json();
   if (!userId) return new Response(JSON.stringify({ error: "Missing userId" }), { status: 400, headers: { "Content-Type": "application/json", ...CORS } });
-  const rows = await sbWorker(`/rest/v1/push_subscriptions?user_id=eq.${userId}&select=subscription`).catch(() => []);
+  const filter = endpoint
+    ? `/rest/v1/push_subscriptions?user_id=eq.${userId}&subscription->>endpoint=eq.${encodeURIComponent(endpoint)}&select=subscription`
+    : `/rest/v1/push_subscriptions?user_id=eq.${userId}&select=subscription`;
+  const rows = await sbWorker(filter).catch(() => []);
   if (!rows?.length) return new Response(JSON.stringify({ error: "No subscription found" }), { status: 404, headers: { "Content-Type": "application/json", ...CORS } });
   for (const row of rows) {
     await sendPush(row.subscription, { title: "Wortschatz 🔔", body: "Push notifications are working!", url: "/" }, env);

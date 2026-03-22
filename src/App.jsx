@@ -406,7 +406,11 @@ export default function App() {
                   {notifSubscribed ? "🔔" : "🔕"}
                 </button>
                 {notifSubscribed && (
-                  <button onClick={() => testPush(userId).catch(console.error)} title="Send test notification"
+                  <button onClick={async () => {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sub = await reg.pushManager.getSubscription();
+                    testPush(userId, sub?.endpoint).catch(console.error);
+                  }} title="Send test notification"
                     style={{ background:"transparent", border:`1px solid ${th.border}`, borderRadius:8, padding: th.isMobile ? "5px 7px" : "6px 10px", fontSize:11, cursor:"pointer", color:th.textMuted, fontFamily:"inherit", lineHeight:1 }}>
                     Test
                   </button>
